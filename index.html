@@ -385,6 +385,7 @@
         let monthNotes = {};
         let lastSyncTime = null;
         let syncInProgress = false;
+        let lastLocalUpdate = Date.now();
 
         // ========== INICIALIZAÇÃO ==========
         document.addEventListener('DOMContentLoaded', function() {
@@ -395,7 +396,7 @@
             attemptAutoSync();
         });
 
-        // ========== SINCRONIZAÇÃO JSONBIN AUTOMÁTICA ==========
+        // ========== SISTEMA DE SINCRONIZAÇÃO CORRIGIDO ==========
         async function syncWithJSONBin() {
             if (syncInProgress) {
                 console.log('Sincronização já em andamento...');
@@ -406,27 +407,50 @@
             showSyncStatus('Sincronizando com nuvem...', 'saving');
 
             try {
-                // Primeiro, buscar dados remotos
+                // Buscar dados remotos primeiro
                 const remoteData = await fetchRemoteData();
                 
                 if (remoteData) {
-                    // Mesclar dados locais com remotos
-                    mergeData(remoteData);
-                }
-                
-                // Depois, enviar dados locais atualizados
-                const success = await uploadData();
-                
-                if (success) {
-                    lastSyncTime = Date.now();
-                    showSyncStatus('Dados sincronizados!', 'saved');
-                    updateSyncIndicator();
-                    saveLocalData(); // Salvar dados mesclados localmente
-                    updateDisplay();
-                    return true;
+                    // VERIFICAR SE OS DADOS LOCAIS SÃO MAIS RECENTES
+                    const localIsNewer = isLocalDataNewer(remoteData.lastModified);
+                    
+                    if (localIsNewer) {
+                        console.log('Dados locais são mais recentes - enviando para nuvem');
+                        // Enviar dados locais para nuvem (LOCAL → REMOTO)
+                        const success = await uploadData();
+                        if (success) {
+                            lastSyncTime = Date.now();
+                            showSyncStatus('Dados sincronizados!', 'saved');
+                            updateSyncIndicator();
+                            updateDisplay();
+                            return true;
+                        }
+                    } else {
+                        console.log('Dados remotos são mais recentes - mesclando');
+                        // Mesclar dados remotos com locais (REMOTO → LOCAL)
+                        const mergeSuccess = mergeData(remoteData);
+                        if (mergeSuccess) {
+                            lastSyncTime = Date.now();
+                            saveLocalData();
+                            showSyncStatus('Dados atualizados da nuvem!', 'saved');
+                            updateSyncIndicator();
+                            updateDisplay();
+                            return true;
+                        }
+                    }
                 } else {
-                    throw new Error('Falha no upload');
+                    // Não há dados remotos - enviar dados locais
+                    console.log('Nenhum dado remoto encontrado - enviando dados locais');
+                    const success = await uploadData();
+                    if (success) {
+                        lastSyncTime = Date.now();
+                        showSyncStatus('Dados sincronizados!', 'saved');
+                        updateSyncIndicator();
+                        return true;
+                    }
                 }
+                
+                return false;
                 
             } catch (error) {
                 console.error('Erro na sincronização:', error);
@@ -437,6 +461,70 @@
             }
         }
 
+        // ========== NOVA FUNÇÃO: VERIFICAR SE DADOS LOCAIS SÃO MAIS RECENTES ==========
+        function isLocalDataNewer(remoteLastModified) {
+            if (!remoteLastModified) return true;
+            if (!lastLocalUpdate) return false;
+            
+            const remoteTime = new Date(remoteLastModified).getTime();
+            return lastLocalUpdate > remoteTime;
+        }
+
+        // ========== MESCLAGEM DE DADOS CORRIGIDA ==========
+        function mergeData(remoteData) {
+            if (!remoteData) return false;
+
+            console.log('Iniciando mesclagem inteligente de dados...');
+
+            try {
+                // Para vendas: usar abordagem baseada em timestamp
+                // Se os dados remotos são mais recentes, substituir completamente
+                if (remoteData.salesData && isNewerData(remoteData.lastModified)) {
+                    console.log('Substituindo dados de vendas por versão mais recente');
+                    salesData = remoteData.salesData;
+                }
+
+                // Para metas: mesclar inteligentemente
+                if (remoteData.monthlyGoals) {
+                    for (const key in remoteData.monthlyGoals) {
+                        const remoteGoal = remoteData.monthlyGoals[key];
+                        const localGoal = monthlyGoals[key];
+                        
+                        if (!localGoal || isNewerData(remoteData.lastModified)) {
+                            monthlyGoals[key] = remoteGoal;
+                        }
+                    }
+                }
+
+                // Para anotações: mesclar inteligentemente
+                if (remoteData.monthNotes) {
+                    for (const key in remoteData.monthNotes) {
+                        const remoteNote = remoteData.monthNotes[key];
+                        const localNote = monthNotes[key];
+                        
+                        if (!localNote || (remoteNote && isNewerData(remoteData.lastModified))) {
+                            monthNotes[key] = remoteNote;
+                        }
+                    }
+                }
+
+                console.log('Mesclagem concluída com sucesso');
+                return true;
+
+            } catch (error) {
+                console.error('Erro na mesclagem:', error);
+                return false;
+            }
+        }
+
+        function isNewerData(remoteLastModified) {
+            if (!lastSyncTime) return true;
+            
+            const remoteTime = new Date(remoteLastModified).getTime();
+            return remoteTime > lastSyncTime;
+        }
+
+        // ========== FUNÇÕES DE API CORRIGIDAS ==========
         async function fetchRemoteData() {
             try {
                 const response = await fetch(`${JSONBIN_CONFIG.baseUrl}/${JSONBIN_CONFIG.binId}/latest`, {
@@ -449,14 +537,14 @@
 
                 if (!response.ok) {
                     if (response.status === 404) {
-                        console.log('Bin não encontrado, criando novo...');
+                        console.log('Bin não encontrado - será criado no próximo upload');
                         return null;
                     }
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
                 const data = await response.json();
-                console.log('Dados remotos recebidos:', data);
+                console.log('Dados remotos recebidos com sucesso');
                 return data.record;
 
             } catch (error) {
@@ -478,7 +566,8 @@
                     method: 'PUT',
                     headers: {
                         'X-Master-Key': JSONBIN_CONFIG.apiKey,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'X-Bin-Versioning': 'false'
                     },
                     body: JSON.stringify(dataToUpload)
                 });
@@ -496,82 +585,16 @@
             }
         }
 
-        function mergeData(remoteData) {
-            if (!remoteData) return;
-
-            console.log('Mesclando dados locais com remotos...');
-
-            // Mesclar salesData
-            if (remoteData.salesData) {
-                for (const year in remoteData.salesData) {
-                    if (!salesData[year]) {
-                        salesData[year] = {};
-                    }
-                    for (const month in remoteData.salesData[year]) {
-                        const remoteSales = remoteData.salesData[year][month] || [];
-                        const localSales = salesData[year][month] || [];
-                        
-                        // Combinar e remover duplicatas baseado em data+código+valor
-                        const combinedSales = [...localSales];
-                        
-                        remoteSales.forEach(remoteSale => {
-                            const exists = localSales.some(localSale => 
-                                localSale.date === remoteSale.date &&
-                                localSale.code === remoteSale.code &&
-                                localSale.value === remoteSale.value &&
-                                localSale.type === remoteSale.type
-                            );
-                            
-                            if (!exists) {
-                                combinedSales.push(remoteSale);
-                            }
-                        });
-                        
-                        // Ordenar por data
-                        combinedSales.sort((a, b) => a.date.localeCompare(b.date));
-                        salesData[year][month] = combinedSales;
-                    }
-                }
-            }
-
-            // Mesclar monthlyGoals (manter o mais recente)
-            if (remoteData.monthlyGoals) {
-                for (const key in remoteData.monthlyGoals) {
-                    if (!monthlyGoals[key] || isNewerData(remoteData.lastModified)) {
-                        monthlyGoals[key] = remoteData.monthlyGoals[key];
-                    }
-                }
-            }
-
-            // Mesclar monthNotes (manter o mais recente)
-            if (remoteData.monthNotes) {
-                for (const key in remoteData.monthNotes) {
-                    if (!monthNotes[key] || isNewerData(remoteData.lastModified)) {
-                        monthNotes[key] = remoteData.monthNotes[key];
-                    }
-                }
-            }
-
-            console.log('Mesclagem concluída');
-        }
-
-        function isNewerData(remoteLastModified) {
-            if (!lastSyncTime) return true;
-            
-            const remoteTime = new Date(remoteLastModified).getTime();
-            return remoteTime > lastSyncTime;
-        }
-
         function updateSyncIndicator() {
             const indicator = document.getElementById('sync-indicator');
             if (lastSyncTime) {
                 const timeDiff = Math.floor((Date.now() - lastSyncTime) / 1000 / 60); // minutos
-                if (timeDiff < 5) {
+                if (timeDiff < 2) {
                     indicator.innerHTML = '✓ Dados sincronizados';
                     indicator.className = 'text-green-600 text-sm md:text-base mt-1 md:mt-2';
                 } else {
-                    indicator.innerHTML = '⚠️ Sincronizando...';
-                    indicator.className = 'text-yellow-600 text-sm md:text-base mt-1 md:mt-2';
+                    indicator.innerHTML = '🔄 Sincronizando...';
+                    indicator.className = 'text-blue-600 text-sm md:text-base mt-1 md:mt-2';
                 }
             } else {
                 indicator.innerHTML = '🔄 Sincronizando...';
@@ -580,20 +603,20 @@
         }
 
         function attemptAutoSync() {
-            // Sincronizar a cada 1 minuto automaticamente
+            // Sincronizar a cada 30 segundos automaticamente
             setInterval(() => {
                 if (!syncInProgress) {
                     syncWithJSONBin();
                 }
-            }, 60000);
+            }, 30000);
             
             // Sincronizar imediatamente ao carregar
             setTimeout(() => {
                 syncWithJSONBin();
-            }, 1000);
+            }, 1500);
         }
 
-        // ========== FUNÇÕES DE DADOS LOCAIS ==========
+        // ========== FUNÇÕES DE DADOS LOCAIS ATUALIZADAS ==========
         function loadLocalData() {
             console.log('Carregando dados do localStorage...');
             
@@ -602,11 +625,13 @@
                 const savedGoals = localStorage.getItem('monthlyGoals');
                 const savedNotes = localStorage.getItem('monthNotes');
                 const savedLastSync = localStorage.getItem('lastSyncTime');
+                const savedLastUpdate = localStorage.getItem('lastLocalUpdate');
                 
                 if (savedSales) salesData = JSON.parse(savedSales);
                 if (savedGoals) monthlyGoals = JSON.parse(savedGoals);
                 if (savedNotes) monthNotes = JSON.parse(savedNotes);
                 if (savedLastSync) lastSyncTime = parseInt(savedLastSync);
+                if (savedLastUpdate) lastLocalUpdate = parseInt(savedLastUpdate);
                 
                 // Inicializar estrutura se estiver vazia
                 if (!salesData || Object.keys(salesData).length === 0) {
@@ -629,6 +654,7 @@
                 localStorage.setItem('monthlyGoals', JSON.stringify(monthlyGoals));
                 localStorage.setItem('monthNotes', JSON.stringify(monthNotes));
                 localStorage.setItem('lastSyncTime', lastSyncTime ? lastSyncTime.toString() : '');
+                localStorage.setItem('lastLocalUpdate', lastLocalUpdate.toString());
                 
                 console.log('Dados locais salvos');
                 
@@ -735,6 +761,7 @@
             monthNotes = {};
             
             initializeEmptyData();
+            lastLocalUpdate = Date.now();
             saveLocalData();
             updateDisplay();
             
@@ -744,6 +771,135 @@
             }, 500);
             
             showSyncStatus('Todos os dados foram limpos!', 'saved');
+        }
+
+        // ========== FUNÇÕES DE VENDAS ATUALIZADAS ==========
+        function addSale() {
+            const date = document.getElementById('sale-date').value;
+            const code = document.getElementById('sale-code').value;
+            const value = parseFloat(document.getElementById('sale-value').value);
+            const type = document.getElementById('sale-type').value;
+            const description = document.getElementById('sale-description').value;
+            
+            if (!date || !code || isNaN(value) || value <= 0) {
+                alert('Por favor, preencha todos os campos obrigatórios com valores válidos.');
+                return;
+            }
+            
+            const sale = {
+                date: date,
+                code: code,
+                value: value,
+                type: type,
+                description: description
+            };
+            
+            if (!salesData[currentYear]) salesData[currentYear] = {};
+            if (!salesData[currentYear][currentMonth]) salesData[currentYear][currentMonth] = [];
+            
+            salesData[currentYear][currentMonth].push(sale);
+            salesData[currentYear][currentMonth].sort((a, b) => a.date.localeCompare(b.date));
+            
+            // ATUALIZAR TIMESTAMP LOCAL
+            lastLocalUpdate = Date.now();
+            saveLocalData();
+            updateDisplay();
+            
+            document.getElementById('sale-form').reset();
+            setCurrentDate();
+            document.getElementById('sale-type').value = 'sale';
+            
+            // Sincronizar com nuvem automaticamente
+            setTimeout(() => {
+                syncWithJSONBin();
+            }, 500);
+        }
+
+        function deleteSale(index) {
+            if (confirm('Tem certeza que deseja excluir este registro?')) {
+                const monthSales = getCurrentMonthSales();
+                monthSales.splice(index, 1);
+                
+                // ATUALIZAR TIMESTAMP LOCAL
+                lastLocalUpdate = Date.now();
+                saveLocalData();
+                updateDisplay();
+                
+                // Sincronizar IMEDIATAMENTE para garantir que a exclusão seja refletida
+                setTimeout(() => {
+                    syncWithJSONBin().then(success => {
+                        if (success) {
+                            showSyncStatus('Venda excluída e sincronizada!', 'saved');
+                        }
+                    });
+                }, 300);
+            }
+        }
+
+        function editSale(index) {
+            const monthSales = getCurrentMonthSales();
+            const sale = monthSales[index];
+            
+            // Preencher formulário com dados da venda
+            document.getElementById('sale-date').value = sale.date;
+            document.getElementById('sale-code').value = sale.code;
+            document.getElementById('sale-value').value = sale.value;
+            document.getElementById('sale-type').value = sale.type;
+            document.getElementById('sale-description').value = sale.description || '';
+            
+            // Remover a venda para adicionar novamente (simulando edição)
+            monthSales.splice(index, 1);
+            
+            // ATUALIZAR TIMESTAMP LOCAL
+            lastLocalUpdate = Date.now();
+            saveLocalData();
+            updateDisplay();
+            
+            // Sincronizar com nuvem
+            setTimeout(() => {
+                syncWithJSONBin();
+            }, 500);
+        }
+
+        function saveMonthlyGoal() {
+            const goal = parseFloat(document.getElementById('monthly-goal').value);
+            const workdays = parseInt(document.getElementById('workdays').value);
+            
+            if (isNaN(goal) || goal < 0 || isNaN(workdays) || workdays < 1 || workdays > 31) {
+                alert('Por favor, insira valores válidos para a meta e dias úteis.');
+                return;
+            }
+            
+            const goalKey = `${currentYear}-${currentMonth}`;
+            monthlyGoals[goalKey] = {
+                goal: goal,
+                workdays: workdays
+            };
+            
+            // ATUALIZAR TIMESTAMP LOCAL
+            lastLocalUpdate = Date.now();
+            saveLocalData();
+            updateDisplay();
+            
+            // Sincronizar com nuvem
+            setTimeout(() => {
+                syncWithJSONBin();
+            }, 500);
+        }
+
+        function saveMonthNotes() {
+            const notes = document.getElementById('month-notes').value;
+            const notesKey = `${currentYear}-${currentMonth}`;
+            monthNotes[notesKey] = notes;
+            
+            // ATUALIZAR TIMESTAMP LOCAL
+            lastLocalUpdate = Date.now();
+            saveLocalData();
+            
+            // Sincronizar com nuvem
+            setTimeout(() => {
+                syncWithJSONBin();
+            }, 500);
         }
 
         // ========== FUNÇÃO DE IMPORTAR DADOS ==========
@@ -781,6 +937,9 @@
                         salesData = importedData.salesData;
                         monthlyGoals = importedData.monthlyGoals;
                         monthNotes = importedData.monthNotes;
+                        
+                        // ATUALIZAR TIMESTAMP LOCAL
+                        lastLocalUpdate = Date.now();
                         
                         // Salvar e sincronizar dados
                         saveLocalData();
@@ -858,7 +1017,7 @@
             updateGoalInputs();
         }
 
-        // ========== FUNÇÕES DA PLANILHA ==========
+        // ========== FUNÇÕES DA PLANILHA (PERMANECEM IGUAIS) ==========
         function updateSalesTable() {
             const tbody = document.getElementById('sales-table-body');
             tbody.innerHTML = '';
@@ -1144,118 +1303,6 @@
             }
         }
 
-        function addSale() {
-            const date = document.getElementById('sale-date').value;
-            const code = document.getElementById('sale-code').value;
-            const value = parseFloat(document.getElementById('sale-value').value);
-            const type = document.getElementById('sale-type').value;
-            const description = document.getElementById('sale-description').value;
-            
-            if (!date || !code || isNaN(value) || value <= 0) {
-                alert('Por favor, preencha todos os campos obrigatórios com valores válidos.');
-                return;
-            }
-            
-            const sale = {
-                date: date,
-                code: code,
-                value: value,
-                type: type,
-                description: description
-            };
-            
-            if (!salesData[currentYear]) salesData[currentYear] = {};
-            if (!salesData[currentYear][currentMonth]) salesData[currentYear][currentMonth] = [];
-            
-            salesData[currentYear][currentMonth].push(sale);
-            salesData[currentYear][currentMonth].sort((a, b) => a.date.localeCompare(b.date));
-            
-            saveLocalData();
-            updateDisplay();
-            
-            document.getElementById('sale-form').reset();
-            setCurrentDate();
-            document.getElementById('sale-type').value = 'sale';
-            
-            // Sincronizar com nuvem automaticamente
-            setTimeout(() => {
-                syncWithJSONBin();
-            }, 500);
-        }
-
-        function editSale(index) {
-            const monthSales = getCurrentMonthSales();
-            const sale = monthSales[index];
-            
-            // Preencher formulário com dados da venda
-            document.getElementById('sale-date').value = sale.date;
-            document.getElementById('sale-code').value = sale.code;
-            document.getElementById('sale-value').value = sale.value;
-            document.getElementById('sale-type').value = sale.type;
-            document.getElementById('sale-description').value = sale.description || '';
-            
-            // Remover a venda para adicionar novamente (simulando edição)
-            monthSales.splice(index, 1);
-            saveLocalData();
-            updateDisplay();
-            
-            // Sincronizar com nuvem
-            setTimeout(() => {
-                syncWithJSONBin();
-            }, 500);
-        }
-
-        function deleteSale(index) {
-            if (confirm('Tem certeza que deseja excluir este registro?')) {
-                const monthSales = getCurrentMonthSales();
-                monthSales.splice(index, 1);
-                saveLocalData();
-                updateDisplay();
-                
-                // Sincronizar com nuvem
-                setTimeout(() => {
-                    syncWithJSONBin();
-                }, 500);
-            }
-        }
-
-        function saveMonthlyGoal() {
-            const goal = parseFloat(document.getElementById('monthly-goal').value);
-            const workdays = parseInt(document.getElementById('workdays').value);
-            
-            if (isNaN(goal) || goal < 0 || isNaN(workdays) || workdays < 1 || workdays > 31) {
-                alert('Por favor, insira valores válidos para a meta e dias úteis.');
-                return;
-            }
-            
-            const goalKey = `${currentYear}-${currentMonth}`;
-            monthlyGoals[goalKey] = {
-                goal: goal,
-                workdays: workdays
-            };
-            
-            saveLocalData();
-            updateDisplay();
-            
-            // Sincronizar com nuvem
-            setTimeout(() => {
-                syncWithJSONBin();
-            }, 500);
-        }
-
-        function saveMonthNotes() {
-            const notes = document.getElementById('month-notes').value;
-            const notesKey = `${currentYear}-${currentMonth}`;
-            monthNotes[notesKey] = notes;
-            
-            saveLocalData();
-            
-            // Sincronizar com nuvem
-            setTimeout(() => {
-                syncWithJSONBin();
-            }, 500);
-        }
-
         function exportData() {
             const dataToExport = {
                 salesData: salesData,
@@ -1363,7 +1410,7 @@
             return value.toFixed(2).replace('.', ',');
         }
 
-        console.log('Planilha de Vendas com JSONBin automático carregada com sucesso!');
+        console.log('Planilha de Vendas com sincronização corrigida carregada com sucesso!');
     </script>
 </body>
 </html>
