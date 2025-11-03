@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planilha Digital de Vendas</title>
+    <title>Planilha Digital de Vendas - Compartilhada</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -51,436 +51,212 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
-        .hidden {
-            display: none !important;
-        }
-        .admin-badge {
-            background-color: #dc2626;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            margin-left: 8px;
-        }
-        /* Melhorias para mobile */
-        @media (max-width: 768px) {
-            .mobile-stack {
-                flex-direction: column !important;
-            }
-            .mobile-full-width {
-                width: 100% !important;
-            }
-            .mobile-text-sm {
-                font-size: 0.875rem !important;
-            }
-            .mobile-p-2 {
-                padding: 0.5rem !important;
-            }
-            .mobile-grid-cols-1 {
-                grid-template-columns: 1fr !important;
-            }
-            .mobile-grid-cols-2 {
-                grid-template-columns: repeat(2, 1fr) !important;
-            }
-            .mobile-hidden {
-                display: none !important;
-            }
-            .mobile-show {
-                display: block !important;
-            }
-            .table-container {
-                max-height: 400px;
-                font-size: 0.75rem;
-            }
-            .mobile-btn-sm {
-                padding: 0.25rem 0.5rem !important;
-                font-size: 0.75rem !important;
-            }
-        }
-        /* Scroll personalizado para tabelas */
-        .table-container::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        .table-container::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 3px;
-        }
-        .table-container::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
-            border-radius: 3px;
-        }
-        .table-container::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8;
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
         }
     </style>
 </head>
-<body class="bg-gray-100 p-2 md:p-4">
-    <!-- Tela de Login -->
-    <div id="login-screen" class="min-h-screen flex items-center justify-center p-4">
-        <div class="bg-white p-6 md:p-8 rounded-lg shadow-md w-full max-w-md">
-            <h2 class="text-2xl font-bold text-center text-blue-700 mb-6">Login</h2>
-            
-            <div id="login-message" class="mb-4 p-3 rounded hidden"></div>
-            
-            <form id="login-form" class="space-y-4">
-                <div>
-                    <label for="username" class="block text-sm font-medium text-gray-700">Usuário</label>
-                    <input type="text" id="username" class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
-                </div>
-                
-                <div>
-                    <label for="password" class="block text-sm font-medium text-gray-700">Senha</label>
-                    <input type="password" id="password" class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
-                </div>
-                
-                <button type="submit" class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    Entrar
-                </button>
-            </form>
-            
-            <div class="mt-4 text-center">
-                <button id="show-register" class="text-blue-500 hover:text-blue-700 text-sm">
-                    Não tem conta? Cadastre-se
-                </button>
-            </div>
-        </div>
+<body class="bg-gray-100 p-4">
+    <!-- Status de sincronização -->
+    <div id="sync-status" class="sync-status" style="display: none;">
+        Sincronizando...
     </div>
 
-    <!-- Tela de Cadastro -->
-    <div id="register-screen" class="min-h-screen flex items-center justify-center p-4 hidden">
-        <div class="bg-white p-6 md:p-8 rounded-lg shadow-md w-full max-w-md">
-            <h2 class="text-2xl font-bold text-center text-blue-700 mb-6">Cadastro</h2>
+    <div class="container mx-auto bg-white rounded-lg shadow-md p-6">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-center text-blue-700">Planilha Digital de Vendas</h1>
+            <p class="text-center text-green-600 mt-2">✓ Dados compartilhados em tempo real</p>
             
-            <div id="register-message" class="mb-4 p-3 rounded hidden"></div>
-            
-            <form id="register-form" class="space-y-4">
+            <div class="flex justify-between items-center mt-4 no-print">
                 <div>
-                    <label for="new-username" class="block text-sm font-medium text-gray-700">Usuário</label>
-                    <input type="text" id="new-username" class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
-                </div>
-                
-                <div>
-                    <label for="new-password" class="block text-sm font-medium text-gray-700">Senha</label>
-                    <input type="password" id="new-password" class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
-                </div>
-                
-                <div>
-                    <label for="confirm-password" class="block text-sm font-medium text-gray-700">Confirmar Senha</label>
-                    <input type="password" id="confirm-password" class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
-                </div>
-                
-                <button type="submit" class="w-full bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500">
-                    Cadastrar
-                </button>
-            </form>
-            
-            <div class="mt-4 text-center">
-                <button id="show-login" class="text-blue-500 hover:text-blue-700 text-sm">
-                    Já tem conta? Faça login
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tela Principal da Planilha -->
-    <div id="main-app" class="hidden">
-        <!-- Status de sincronização -->
-        <div id="sync-status" class="sync-status" style="display: none;">
-            Sincronizando...
-        </div>
-
-        <div class="container mx-auto bg-white rounded-lg shadow-md p-4 md:p-6">
-            <header class="mb-6">
-                <div class="flex flex-col md:flex-row md:justify-between md:items-center space-y-2 md:space-y-0">
-                    <div class="text-center md:text-left">
-                        <h1 class="text-xl md:text-3xl font-bold text-blue-700">Planilha de Vendas</h1>
-                        <div class="flex flex-col md:flex-row md:items-center mt-1 md:mt-2 space-y-1 md:space-y-0">
-                            <p class="text-green-600 text-sm md:text-base">✓ Dados sincronizados</p>
-                            <span id="user-info" class="text-gray-600 text-sm md:text-base md:ml-4"></span>
-                            <span id="admin-badge" class="admin-badge hidden md:inline-block mt-1 md:mt-0">ADMIN</span>
-                        </div>
-                    </div>
-                    <div class="flex flex-wrap justify-center gap-2 mobile-btn-sm">
-                        <button id="admin-panel-btn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 md:px-4 md:py-2 rounded no-print hidden text-sm">
-                            🛡️ Admin
-                        </button>
-                        <button id="import-btn" class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 md:px-4 md:py-2 rounded no-print text-sm">
-                            📥 Importar
-                        </button>
-                        <button id="change-password-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 md:px-4 md:py-2 rounded no-print text-sm">
-                            🔒 Senha
-                        </button>
-                        <button id="logout-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 md:px-4 md:py-2 rounded no-print text-sm">
-                            🚪 Sair
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="flex flex-col md:flex-row md:justify-between md:items-center mt-4 space-y-2 md:space-y-0 no-print">
-                    <div class="flex items-center justify-center md:justify-start">
-                        <label for="year-select" class="mr-2 text-sm md:text-base">Ano:</label>
-                        <select id="year-select" class="border rounded p-1 text-sm md:text-base">
-                            <!-- Opções de ano serão preenchidas via JavaScript -->
-                        </select>
-                    </div>
-                    <div class="flex flex-wrap justify-center gap-2">
-                        <button id="refresh-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 md:px-4 md:py-2 rounded text-sm">
-                            🔄 Atualizar
-                        </button>
-                        <button id="backup-btn" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 md:px-4 md:py-2 rounded text-sm">
-                            💾 Exportar
-                        </button>
-                        <button id="print-btn" class="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 md:px-4 md:py-2 rounded text-sm">
-                            🖨️ Imprimir
-                        </button>
-                    </div>
-                </div>
-            </header>
-
-            <!-- Navegação por meses - Versão Mobile Compacta -->
-            <div class="mb-4 no-print">
-                <div class="md:hidden mb-2">
-                    <select id="mobile-month-select" class="w-full border rounded p-2 text-sm">
-                        <option value="0">Janeiro</option>
-                        <option value="1">Fevereiro</option>
-                        <option value="2">Março</option>
-                        <option value="3">Abril</option>
-                        <option value="4">Maio</option>
-                        <option value="5">Junho</option>
-                        <option value="6">Julho</option>
-                        <option value="7">Agosto</option>
-                        <option value="8">Setembro</option>
-                        <option value="9">Outubro</option>
-                        <option value="10">Novembro</option>
-                        <option value="11">Dezembro</option>
+                    <label for="year-select" class="mr-2">Ano:</label>
+                    <select id="year-select" class="border rounded p-1">
+                        <!-- Opções de ano serão preenchidas via JavaScript -->
                     </select>
                 </div>
-                <div class="hidden md:flex flex-wrap justify-center gap-2">
-                    <button class="month-tab px-3 py-1 md:px-4 md:py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm" data-month="0">Jan</button>
-                    <button class="month-tab px-3 py-1 md:px-4 md:py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm" data-month="1">Fev</button>
-                    <button class="month-tab px-3 py-1 md:px-4 md:py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm" data-month="2">Mar</button>
-                    <button class="month-tab px-3 py-1 md:px-4 md:py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm" data-month="3">Abr</button>
-                    <button class="month-tab px-3 py-1 md:px-4 md:py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm" data-month="4">Mai</button>
-                    <button class="month-tab px-3 py-1 md:px-4 md:py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm" data-month="5">Jun</button>
-                    <button class="month-tab px-3 py-1 md:px-4 md:py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm" data-month="6">Jul</button>
-                    <button class="month-tab px-3 py-1 md:px-4 md:py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm" data-month="7">Ago</button>
-                    <button class="month-tab px-3 py-1 md:px-4 md:py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm" data-month="8">Set</button>
-                    <button class="month-tab px-3 py-1 md:px-4 md:py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm" data-month="9">Out</button>
-                    <button class="month-tab px-3 py-1 md:px-4 md:py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm" data-month="10">Nov</button>
-                    <button class="month-tab px-3 py-1 md:px-4 md:py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm" data-month="11">Dez</button>
+                <div class="flex space-x-2">
+                    <button id="refresh-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded">
+                        🔄 Atualizar
+                    </button>
+                    <button id="backup-btn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
+                        💾 Exportar Backup
+                    </button>
+                    <button id="print-btn" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded">
+                        🖨️ Imprimir
+                    </button>
                 </div>
             </div>
+        </header>
 
-            <!-- Configuração de meta mensal -->
-            <div class="mb-4 md:mb-6 p-3 md:p-4 bg-blue-50 rounded-lg no-print">
-                <h2 class="text-lg md:text-xl font-semibold mb-2">Meta Mensal</h2>
-                <div class="flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-4">
-                    <div class="flex-1">
-                        <label for="monthly-goal" class="block text-sm font-medium">Meta do Mês (R$):</label>
-                        <input type="number" id="monthly-goal" class="border rounded p-2 w-full text-sm md:text-base" min="0" step="0.01">
-                    </div>
-                    <div class="flex-1">
-                        <label for="workdays" class="block text-sm font-medium">Dias Úteis:</label>
-                        <input type="number" id="workdays" class="border rounded p-2 w-full text-sm md:text-base" min="1" max="31">
-                    </div>
-                    <div class="flex-1">
-                        <button id="save-goal-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded w-full md:w-auto mt-2 md:mt-5 text-sm md:text-base">Salvar Meta</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Resumo mensal ATUALIZADO com layout responsivo -->
-            <div class="mb-4 md:mb-6 p-3 md:p-4 bg-green-50 rounded-lg">
-                <h2 class="text-lg md:text-xl font-semibold mb-2">Resumo do Mês</h2>
-                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-4">
-                    <div class="bg-white p-2 md:p-4 rounded shadow">
-                        <h3 class="font-medium text-xs md:text-sm">Total Vendido</h3>
-                        <p id="total-sold" class="text-lg md:text-2xl font-bold text-green-600">R$ 0,00</p>
-                    </div>
-                    <div class="bg-white p-2 md:p-4 rounded shadow">
-                        <h3 class="font-medium text-xs md:text-sm">Devoluções</h3>
-                        <p id="total-returns" class="text-lg md:text-2xl font-bold text-red-600">R$ 0,00</p>
-                    </div>
-                    <div class="bg-white p-2 md:p-4 rounded shadow">
-                        <h3 class="font-medium text-xs md:text-sm">Líquido</h3>
-                        <p id="net-amount" class="text-lg md:text-2xl font-bold text-blue-600">R$ 0,00</p>
-                    </div>
-                    <div class="bg-white p-2 md:p-4 rounded shadow">
-                        <h3 class="font-medium text-xs md:text-sm">Meta Mensal</h3>
-                        <p id="monthly-goal-display" class="text-lg md:text-2xl font-bold text-purple-600">R$ 0,00</p>
-                    </div>
-                    <div class="bg-white p-2 md:p-4 rounded shadow">
-                        <h3 class="font-medium text-xs md:text-sm">Meta Diária</h3>
-                        <p id="daily-goal" class="text-lg md:text-2xl font-bold text-orange-600">R$ 0,00</p>
-                    </div>
-                    <div class="bg-white p-2 md:p-4 rounded shadow">
-                        <h3 class="font-medium text-xs md:text-sm">Média Necessária</h3>
-                        <p id="average-needed" class="text-lg md:text-2xl font-bold text-indigo-600">R$ 0,00</p>
-                        <p class="text-xs text-gray-500 mt-1 hidden md:block">por dia para bater a meta</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Gráfico de progresso -->
-            <div class="mb-4 md:mb-6 no-print">
-                <canvas id="sales-chart" height="80"></canvas>
-            </div>
-
-            <!-- Formulário para adicionar venda - Versão Responsiva -->
-            <div class="mb-4 md:mb-6 p-3 md:p-4 bg-gray-50 rounded-lg no-print">
-                <h2 class="text-lg md:text-xl font-semibold mb-2">Adicionar Venda</h2>
-                <form id="sale-form" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2 md:gap-4">
-                    <div class="md:col-span-1">
-                        <label for="sale-date" class="block text-sm font-medium">Data:</label>
-                        <input type="date" id="sale-date" class="border rounded p-2 w-full text-sm" required>
-                    </div>
-                    <div class="md:col-span-1">
-                        <label for="sale-code" class="block text-sm font-medium">Código:</label>
-                        <input type="text" id="sale-code" class="border rounded p-2 w-full text-sm" required>
-                    </div>
-                    <div class="md:col-span-1">
-                        <label for="sale-value" class="block text-sm font-medium">Valor (R$):</label>
-                        <input type="number" id="sale-value" class="border rounded p-2 w-full text-sm" min="0" step="0.01" required>
-                    </div>
-                    <div class="md:col-span-1">
-                        <label for="sale-type" class="block text-sm font-medium">Tipo:</label>
-                        <select id="sale-type" class="border rounded p-2 w-full text-sm">
-                            <option value="sale">Venda</option>
-                            <option value="return">Devolução</option>
-                        </select>
-                    </div>
-                    <div class="md:col-span-2 lg:col-span-1">
-                        <label for="sale-description" class="block text-sm font-medium">Descrição:</label>
-                        <input type="text" id="sale-description" class="border rounded p-2 w-full text-sm">
-                    </div>
-                    <div class="md:col-span-2 lg:col-span-1 flex items-end">
-                        <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded w-full text-sm">Adicionar</button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Tabela de vendas com scroll responsivo -->
-            <div class="mb-4 md:mb-6">
-                <h2 class="text-lg md:text-xl font-semibold mb-2">Vendas do Mês</h2>
-                <div class="table-container border rounded">
-                    <table id="sales-table" class="min-w-full divide-y divide-gray-200 text-sm">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
-                                <th class="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                                <th class="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
-                                <th class="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                                <th class="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider mobile-hidden">Descrição</th>
-                                <th class="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider no-print">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="sales-table-body" class="bg-white divide-y divide-gray-200">
-                            <!-- As vendas serão preenchidas via JavaScript -->
-                        </tbody>
-                        <tfoot class="bg-gray-50 font-semibold">
-                            <tr>
-                                <td class="px-2 md:px-4 py-2" colspan="2">Total Diário:</td>
-                                <td id="daily-total" class="px-2 md:px-4 py-2">R$ 0,00</td>
-                                <td colspan="3"></td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Anotações do mês -->
-            <div class="mb-4 md:mb-6 no-print">
-                <h2 class="text-lg md:text-xl font-semibold mb-2">Anotações do Mês</h2>
-                <textarea id="month-notes" class="w-full border rounded p-2 h-24 md:h-32 text-sm" placeholder="Adicione suas anotações aqui..."></textarea>
-                <button id="save-notes-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mt-2 text-sm">Salvar Anotações</button>
-            </div>
-
-            <!-- Relatório para impressão -->
-            <div id="print-report" class="print-only">
-                <!-- Conteúdo do relatório de impressão (mantido igual) -->
+        <!-- Navegação por meses -->
+        <div class="mb-6 no-print">
+            <div class="flex flex-wrap justify-center gap-2">
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="0">Janeiro</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="1">Fevereiro</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="2">Março</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="3">Abril</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="4">Maio</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="5">Junho</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="6">Julho</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="7">Agosto</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="8">Setembro</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="9">Outubro</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="10">Novembro</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="11">Dezembro</button>
             </div>
         </div>
-    </div>
 
-    <!-- Modal Alterar Senha -->
-    <div id="change-password-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-96 shadow-lg rounded-md bg-white">
-            <div class="mt-3 text-center">
-                <h3 class="text-lg font-medium text-gray-900">Alterar Senha</h3>
-                <div class="mt-4 space-y-4">
-                    <input type="password" id="current-password" placeholder="Senha atual" class="w-full border rounded p-2 text-sm">
-                    <input type="password" id="new-password-change" placeholder="Nova senha" class="w-full border rounded p-2 text-sm">
-                    <input type="password" id="confirm-new-password" placeholder="Confirmar nova senha" class="w-full border rounded p-2 text-sm">
+        <!-- Configuração de meta mensal -->
+        <div class="mb-6 p-4 bg-blue-50 rounded-lg no-print">
+            <h2 class="text-xl font-semibold mb-2">Meta Mensal</h2>
+            <div class="flex items-center space-x-4">
+                <div>
+                    <label for="monthly-goal" class="block text-sm font-medium">Meta do Mês (R$):</label>
+                    <input type="number" id="monthly-goal" class="border rounded p-2 w-40" min="0" step="0.01">
                 </div>
-                <div id="password-message" class="mt-2 text-sm"></div>
-                <div class="flex justify-center mt-4 space-x-2">
-                    <button id="confirm-password-change" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">Alterar</button>
-                    <button id="cancel-password-change" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm">Cancelar</button>
+                <div>
+                    <label for="workdays" class="block text-sm font-medium">Dias Úteis no Mês:</label>
+                    <input type="number" id="workdays" class="border rounded p-2 w-40" min="1" max="31">
+                </div>
+                <button id="save-goal-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mt-5">Salvar Meta</button>
+            </div>
+        </div>
+
+        <!-- Resumo mensal -->
+        <div class="mb-6 p-4 bg-green-50 rounded-lg">
+            <h2 class="text-xl font-semibold mb-2">Resumo do Mês</h2>
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div class="bg-white p-4 rounded shadow">
+                    <h3 class="font-medium">Total Vendido</h3>
+                    <p id="total-sold" class="text-2xl font-bold text-green-600">R$ 0,00</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow">
+                    <h3 class="font-medium">Total Devoluções</h3>
+                    <p id="total-returns" class="text-2xl font-bold text-red-600">R$ 0,00</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow">
+                    <h3 class="font-medium">Líquido</h3>
+                    <p id="net-amount" class="text-2xl font-bold text-blue-600">R$ 0,00</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow">
+                    <h3 class="font-medium">Meta Mensal</h3>
+                    <p id="monthly-goal-display" class="text-2xl font-bold text-purple-600">R$ 0,00</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow">
+                    <h3 class="font-medium">Meta Diária</h3>
+                    <p id="daily-goal" class="text-2xl font-bold text-orange-600">R$ 0,00</p>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Modal Importar Dados -->
-    <div id="import-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-96 shadow-lg rounded-md bg-white">
-            <div class="mt-3 text-center">
-                <h3 class="text-lg font-medium text-gray-900">Importar Dados</h3>
-                <div class="mt-4">
-                    <p class="text-sm text-gray-600 mb-3">Selecione o arquivo de backup (.json) para importar</p>
-                    <input type="file" id="import-file" class="w-full border rounded p-2 text-sm" accept=".json">
+        <!-- Gráfico de progresso -->
+        <div class="mb-6 no-print">
+            <canvas id="sales-chart" height="100"></canvas>
+        </div>
+
+        <!-- Formulário para adicionar venda -->
+        <div class="mb-6 p-4 bg-gray-50 rounded-lg no-print">
+            <h2 class="text-xl font-semibold mb-2">Adicionar Venda</h2>
+            <form id="sale-form" class="grid grid-cols-1 md:grid-cols-6 gap-4">
+                <div>
+                    <label for="sale-date" class="block text-sm font-medium">Data:</label>
+                    <input type="date" id="sale-date" class="border rounded p-2 w-full" required>
                 </div>
-                <div class="mt-4 text-left text-sm text-gray-600">
-                    <p class="font-semibold">Atenção:</p>
-                    <ul class="list-disc list-inside mt-1 space-y-1">
-                        <li>Os dados atuais serão substituídos</li>
-                        <li>Formato esperado: Exportação desta planilha</li>
-                        <li>Faça backup antes de importar</li>
-                    </ul>
+                <div>
+                    <label for="sale-code" class="block text-sm font-medium">Código:</label>
+                    <input type="text" id="sale-code" class="border rounded p-2 w-full" required>
                 </div>
-                <div id="import-message" class="mt-2 text-sm"></div>
-                <div class="flex justify-center mt-4 space-x-2">
-                    <button id="confirm-import" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded text-sm">Importar</button>
-                    <button id="cancel-import" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm">Cancelar</button>
+                <div>
+                    <label for="sale-value" class="block text-sm font-medium">Valor (R$):</label>
+                    <input type="number" id="sale-value" class="border rounded p-2 w-full" min="0" step="0.01" required>
                 </div>
+                <div>
+                    <label for="sale-type" class="block text-sm font-medium">Tipo:</label>
+                    <select id="sale-type" class="border rounded p-2 w-full">
+                        <option value="sale">Venda</option>
+                        <option value="return">Devolução</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="sale-description" class="block text-sm font-medium">Descrição:</label>
+                    <input type="text" id="sale-description" class="border rounded p-2 w-full">
+                </div>
+                <div class="flex items-end">
+                    <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded w-full">Adicionar</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tabela de vendas -->
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-2">Vendas e Devoluções do Mês</h2>
+            <div class="table-container border rounded">
+                <table id="sales-table" class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor (R$)</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrição</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider no-print">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sales-table-body" class="bg-white divide-y divide-gray-200">
+                        <!-- As vendas serão preenchidas via JavaScript -->
+                    </tbody>
+                    <tfoot class="bg-gray-50 font-semibold">
+                        <tr>
+                            <td class="px-4 py-2" colspan="2">Total Diário:</td>
+                            <td id="daily-total" class="px-4 py-2">R$ 0,00</td>
+                            <td colspan="3"></td>
+                        </tr>
+                    </tfoot>
+                </table>
             </div>
         </div>
-    </div>
 
-    <!-- Painel Administrativo -->
-    <div id="admin-panel" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-        <div class="relative top-10 mx-auto p-4 md:p-5 border w-11/12 md:w-11/12 shadow-lg rounded-md bg-white">
-            <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-4 space-y-2 md:space-y-0">
-                <h3 class="text-lg font-medium text-gray-900">Painel Administrativo</h3>
-                <button id="close-admin-panel" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm">Fechar</button>
-            </div>
-            
+        <!-- Anotações do mês -->
+        <div class="mb-6 no-print">
+            <h2 class="text-xl font-semibold mb-2">Anotações do Mês</h2>
+            <textarea id="month-notes" class="w-full border rounded p-2 h-32" placeholder="Adicione suas anotações aqui..."></textarea>
+            <button id="save-notes-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mt-2">Salvar Anotações</button>
+        </div>
+
+        <!-- Relatório para impressão -->
+        <div id="print-report" class="print-only">
+            <h2 class="text-2xl font-bold text-center mb-4">Relatório de Vendas</h2>
             <div class="mb-4">
-                <h4 class="font-semibold mb-2">Usuários Cadastrados</h4>
-                <div class="table-container border rounded">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-2 md:px-4 py-2 text-left">Usuário</th>
-                                <th class="px-2 md:px-4 py-2 text-left mobile-hidden">Data Cadastro</th>
-                                <th class="px-2 md:px-4 py-2 text-left">Total Vendas</th>
-                                <th class="px-2 md:px-4 py-2 text-left">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="admin-users-list">
-                            <!-- Lista de usuários será preenchida via JavaScript -->
-                        </tbody>
-                    </table>
+                <p><strong>Mês:</strong> <span id="print-month"></span></p>
+                <p><strong>Ano:</strong> <span id="print-year"></span></p>
+            </div>
+            <div class="mb-4 grid grid-cols-2 gap-4">
+                <div>
+                    <p><strong>Total Vendido:</strong> <span id="print-total-sold"></span></p>
+                    <p><strong>Total Devoluções:</strong> <span id="print-total-returns"></span></p>
+                    <p><strong>Líquido:</strong> <span id="print-net-amount"></span></p>
+                </div>
+                <div>
+                    <p><strong>Meta Mensal:</strong> <span id="print-monthly-goal"></span></p>
+                    <p><strong>Diferença:</strong> <span id="print-difference"></span></p>
+                    <p><strong>Meta Diária:</strong> <span id="print-daily-goal"></span></p>
                 </div>
             </div>
-            
-            <div>
-                <h4 class="font-semibold mb-2">Visão Geral de Vendas</h4>
-                <div id="admin-sales-overview" class="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4">
-                    <!-- Visão geral será preenchida via JavaScript -->
-                </div>
-            </div>
+            <table id="print-sales-table" class="print-full-width min-w-full border">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="border px-4 py-2 text-left">Data</th>
+                        <th class="border px-4 py-2 text-left">Código</th>
+                        <th class="border px-4 py-2 text-left">Valor (R$)</th>
+                        <th class="border px-4 py-2 text-left">Tipo</th>
+                        <th class="border px-4 py-2 text-left">Descrição</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Conteúdo será preenchido via JavaScript -->
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -491,181 +267,40 @@
             apiKey: '$2a$10$AKM30q2AE/6WJhXqS2dft.8Luvw0h6GHLQWhtcUBQc12SCGK3oRra'
         };
 
-        // ========== USUÁRIO ADMIN PADRÃO ==========
-        const ADMIN_USER = {
-            username: 'jslopes',
-            password: '25102022',
-            isAdmin: true
-        };
-
         // Variáveis globais
         let currentYear = new Date().getFullYear();
         let currentMonth = new Date().getMonth();
         let salesData = {};
         let monthlyGoals = {};
         let monthNotes = {};
-        let currentUser = null;
-        let allUsersData = {};
 
         // Inicialização
         document.addEventListener('DOMContentLoaded', function() {
-            initializeAuth();
-            setupAuthEventListeners();
-            checkAutoLogin();
+            initializeApp();
+            setupEventListeners();
+            loadDataFromJsonBin();
         });
 
-        // ========== SISTEMA DE AUTENTICAÇÃO ==========
+        // ========== FUNÇÕES JSONBIN.IO ==========
 
-        function initializeAuth() {
-            loadUsersData();
-        }
-
-        function setupAuthEventListeners() {
-            // Login
-            document.getElementById('login-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                const username = document.getElementById('username').value;
-                const password = document.getElementById('password').value;
-                login(username, password);
-            });
-
-            // Cadastro
-            document.getElementById('register-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                const username = document.getElementById('new-username').value;
-                const password = document.getElementById('new-password').value;
-                const confirmPassword = document.getElementById('confirm-password').value;
-                register(username, password, confirmPassword);
-            });
-
-            // Navegação entre login/cadastro
-            document.getElementById('show-register').addEventListener('click', showRegisterScreen);
-            document.getElementById('show-login').addEventListener('click', showLoginScreen);
-
-            // Logout
-            document.getElementById('logout-btn').addEventListener('click', logout);
-
-            // Alterar senha
-            document.getElementById('change-password-btn').addEventListener('click', showChangePasswordModal);
-            document.getElementById('confirm-password-change').addEventListener('click', changePassword);
-            document.getElementById('cancel-password-change').addEventListener('click', hideChangePasswordModal);
-
-            // Importar dados
-            document.getElementById('import-btn').addEventListener('click', showImportModal);
-            document.getElementById('confirm-import').addEventListener('click', importData);
-            document.getElementById('cancel-import').addEventListener('click', hideImportModal);
-
-            // Painel admin
-            document.getElementById('admin-panel-btn').addEventListener('click', showAdminPanel);
-            document.getElementById('close-admin-panel').addEventListener('click', hideAdminPanel);
-
-            // Navegação mobile
-            document.getElementById('mobile-month-select').addEventListener('change', function() {
-                currentMonth = parseInt(this.value);
-                updateMonthTabs();
-                updateDisplay();
-            });
-        }
-
-        // ========== FUNÇÃO DE IMPORTAR DADOS ==========
-
-        function showImportModal() {
-            document.getElementById('import-modal').classList.remove('hidden');
-        }
-
-        function hideImportModal() {
-            document.getElementById('import-modal').classList.add('hidden');
-            document.getElementById('import-file').value = '';
-            document.getElementById('import-message').textContent = '';
-        }
-
-        function importData() {
-            const fileInput = document.getElementById('import-file');
-            const file = fileInput.files[0];
+        // Mostrar status
+        function showSyncStatus(message, type = 'saving') {
+            const statusElement = document.getElementById('sync-status');
+            statusElement.textContent = message;
+            statusElement.className = `sync-status sync-${type}`;
+            statusElement.style.display = 'block';
             
-            if (!file) {
-                showImportMessage('Selecione um arquivo para importar.', 'error');
-                return;
-            }
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const importedData = JSON.parse(e.target.result);
-                    
-                    // Validar estrutura do arquivo
-                    if (!importedData.salesData || !importedData.monthlyGoals || !importedData.monthNotes) {
-                        throw new Error('Arquivo inválido: estrutura de dados incorreta.');
-                    }
-                    
-                    if (confirm('⚠️ ATENÇÃO: Isso substituirá todos os seus dados atuais. Deseja continuar?')) {
-                        // Substituir dados atuais
-                        salesData = importedData.salesData;
-                        monthlyGoals = importedData.monthlyGoals;
-                        monthNotes = importedData.monthNotes;
-                        
-                        // Salvar dados
-                        saveUserData().then(success => {
-                            if (success) {
-                                showImportMessage('Dados importados com sucesso!', 'success');
-                                updateDisplay();
-                                setTimeout(() => {
-                                    hideImportModal();
-                                }, 2000);
-                            } else {
-                                showImportMessage('Erro ao salvar dados importados.', 'error');
-                            }
-                        });
-                    }
-                } catch (error) {
-                    console.error('Erro ao importar:', error);
-                    showImportMessage('Erro: ' + error.message, 'error');
-                }
-            };
-            
-            reader.onerror = function() {
-                showImportMessage('Erro ao ler o arquivo.', 'error');
-            };
-            
-            reader.readAsText(file);
-        }
-
-        function showImportMessage(message, type) {
-            const element = document.getElementById('import-message');
-            element.textContent = message;
-            element.className = `mt-2 text-sm ${type === 'success' ? 'text-green-600' : 'text-red-600'}`;
-        }
-
-        // ========== MELHORIAS DE RESPONSIVIDADE ==========
-
-        function updateMonthTabs() {
-            // Atualizar seleção mobile
-            document.getElementById('mobile-month-select').value = currentMonth;
-            
-            // Atualizar abas desktop
-            document.querySelectorAll('.month-tab').forEach(tab => {
-                tab.classList.remove('bg-blue-500', 'text-white');
-                tab.classList.add('bg-gray-200', 'hover:bg-gray-300');
-            });
-            
-            const activeTab = document.querySelector(`.month-tab[data-month="${currentMonth}"]`);
-            if (activeTab) {
-                activeTab.classList.remove('bg-gray-200', 'hover:bg-gray-300');
-                activeTab.classList.add('bg-blue-500', 'text-white');
+            if (type === 'saved') {
+                setTimeout(() => {
+                    statusElement.style.display = 'none';
+                }, 3000);
             }
         }
 
-        // ========== FUNÇÕES RESTANTES (MANTIDAS COM PEQUENOS AJUSTES) ==========
-
-        function checkAutoLogin() {
-            const savedUser = localStorage.getItem('currentUser');
-            if (savedUser) {
-                const user = JSON.parse(savedUser);
-                login(user.username, user.password, true);
-            }
-        }
-
-        async function loadUsersData() {
+        // Carregar dados do JSONBin
+        async function loadDataFromJsonBin() {
+            showSyncStatus('Carregando dados...', 'saving');
+            
             try {
                 const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.binId}/latest`, {
                     headers: {
@@ -673,208 +308,107 @@
                     }
                 });
                 
-                if (response.ok) {
-                    const data = await response.json();
-                    allUsersData = data.record || {};
-                    
-                    if (!allUsersData.users) {
-                        allUsersData.users = {};
-                    }
-                    if (!allUsersData.users[ADMIN_USER.username]) {
-                        allUsersData.users[ADMIN_USER.username] = {
-                            password: ADMIN_USER.password,
-                            isAdmin: true,
-                            createdAt: new Date().toISOString()
-                        };
-                    }
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
                 }
+                
+                const data = await response.json();
+                
+                if (data.record) {
+                    salesData = data.record.salesData || {};
+                    monthlyGoals = data.record.monthlyGoals || {};
+                    monthNotes = data.record.monthNotes || {};
+                    
+                    showSyncStatus('Dados carregados com sucesso!', 'saved');
+                } else {
+                    initializeEmptyData();
+                    showSyncStatus('Primeiro uso - dados iniciados!', 'saved');
+                }
+                
+                updateDisplay();
             } catch (error) {
-                console.error('Erro ao carregar dados de usuários:', error);
-                allUsersData = { users: { [ADMIN_USER.username]: { password: ADMIN_USER.password, isAdmin: true, createdAt: new Date().toISOString() } } };
+                console.error('Erro ao carregar:', error);
+                showSyncStatus('Erro ao carregar. Usando cache local.', 'error');
+                loadFromLocalStorage();
             }
         }
 
-        async function saveUsersData() {
+        // Salvar dados no JSONBin
+        async function saveDataToJsonBin() {
+            showSyncStatus('Salvando na nuvem...', 'saving');
+            
             try {
+                const dataToSave = {
+                    salesData: salesData,
+                    monthlyGoals: monthlyGoals,
+                    monthNotes: monthNotes,
+                    lastUpdate: new Date().toISOString()
+                };
+                
                 const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.binId}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-Master-Key': JSONBIN_CONFIG.apiKey
                     },
-                    body: JSON.stringify(allUsersData)
+                    body: JSON.stringify(dataToSave)
                 });
                 
-                return response.ok;
-            } catch (error) {
-                console.error('Erro ao salvar dados de usuários:', error);
-                return false;
-            }
-        }
-
-        function login(username, password, isAutoLogin = false) {
-            const user = allUsersData.users?.[username];
-            
-            if (user && user.password === password) {
-                currentUser = {
-                    username: username,
-                    isAdmin: user.isAdmin || false
-                };
-                
-                localStorage.setItem('currentUser', JSON.stringify({
-                    username: username,
-                    password: password
-                }));
-                
-                loadUserData();
-                showMainApp();
-                
-                if (!isAutoLogin) {
-                    showMessage('Login realizado com sucesso!', 'success', 'login-message');
+                if (response.ok) {
+                    showSyncStatus('Dados salvos na nuvem!', 'saved');
+                    saveToLocalStorage();
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Erro ao salvar');
                 }
-            } else {
-                showMessage('Usuário ou senha incorretos!', 'error', 'login-message');
+                
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                showSyncStatus('Erro ao salvar. Usando cache local.', 'error');
+                saveToLocalStorage();
             }
         }
 
-        function register(username, password, confirmPassword) {
-            if (password !== confirmPassword) {
-                showMessage('As senhas não coincidem!', 'error', 'register-message');
-                return;
-            }
-            
-            if (allUsersData.users?.[username]) {
-                showMessage('Usuário já existe!', 'error', 'register-message');
-                return;
-            }
-            
-            if (!allUsersData.users) {
-                allUsersData.users = {};
-            }
-            
-            allUsersData.users[username] = {
-                password: password,
-                isAdmin: false,
-                createdAt: new Date().toISOString()
-            };
-            
-            if (!allUsersData[username]) {
-                allUsersData[username] = {
-                    salesData: {},
-                    monthlyGoals: {},
-                    monthNotes: {}
-                };
-            }
-            
-            if (saveUsersData()) {
-                showMessage('Cadastro realizado com sucesso! Faça login.', 'success', 'register-message');
-                showLoginScreen();
-            } else {
-                showMessage('Erro ao cadastrar. Tente novamente.', 'error', 'register-message');
+        // Backup local
+        function saveToLocalStorage() {
+            try {
+                localStorage.setItem('salesData_backup', JSON.stringify(salesData));
+                localStorage.setItem('monthlyGoals_backup', JSON.stringify(monthlyGoals));
+                localStorage.setItem('monthNotes_backup', JSON.stringify(monthNotes));
+                localStorage.setItem('lastBackup', new Date().toISOString());
+            } catch (e) {
+                console.warn('Erro ao salvar no localStorage:', e);
             }
         }
 
-        function logout() {
-            currentUser = null;
-            localStorage.removeItem('currentUser');
-            showLoginScreen();
-        }
-
-        function changePassword() {
-            const currentPassword = document.getElementById('current-password').value;
-            const newPassword = document.getElementById('new-password-change').value;
-            const confirmNewPassword = document.getElementById('confirm-new-password').value;
-            
-            if (newPassword !== confirmNewPassword) {
-                showPasswordMessage('As senhas não coincidem!', 'error');
-                return;
+        function loadFromLocalStorage() {
+            try {
+                const savedSales = localStorage.getItem('salesData_backup');
+                const savedGoals = localStorage.getItem('monthlyGoals_backup');
+                const savedNotes = localStorage.getItem('monthNotes_backup');
+                
+                if (savedSales) salesData = JSON.parse(savedSales);
+                if (savedGoals) monthlyGoals = JSON.parse(savedGoals);
+                if (savedNotes) monthNotes = JSON.parse(savedNotes);
+                
+                if (Object.keys(salesData).length === 0) {
+                    initializeEmptyData();
+                }
+                
+                updateDisplay();
+                showSyncStatus('Dados carregados do cache local', 'saved');
+            } catch (e) {
+                console.error('Erro ao carregar do cache:', e);
+                initializeEmptyData();
+                updateDisplay();
             }
-            
-            if (allUsersData.users[currentUser.username].password !== currentPassword) {
-                showPasswordMessage('Senha atual incorreta!', 'error');
-                return;
-            }
-            
-            allUsersData.users[currentUser.username].password = newPassword;
-            
-            if (saveUsersData()) {
-                showPasswordMessage('Senha alterada com sucesso!', 'success');
-                setTimeout(() => {
-                    hideChangePasswordModal();
-                }, 1000);
-            } else {
-                showPasswordMessage('Erro ao alterar senha.', 'error');
-            }
-        }
-
-        // ========== FUNÇÕES DE INTERFACE ==========
-
-        function showLoginScreen() {
-            document.getElementById('login-screen').classList.remove('hidden');
-            document.getElementById('register-screen').classList.add('hidden');
-            document.getElementById('main-app').classList.add('hidden');
-        }
-
-        function showRegisterScreen() {
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('register-screen').classList.remove('hidden');
-            document.getElementById('main-app').classList.add('hidden');
-        }
-
-        function showMainApp() {
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('register-screen').classList.add('hidden');
-            document.getElementById('main-app').classList.remove('hidden');
-            
-            document.getElementById('user-info').textContent = `Usuário: ${currentUser.username}`;
-            
-            if (currentUser.isAdmin) {
-                document.getElementById('admin-badge').classList.remove('hidden');
-                document.getElementById('admin-panel-btn').classList.remove('hidden');
-            }
-            
-            initializeApp();
-        }
-
-        function showMessage(message, type, elementId) {
-            const element = document.getElementById(elementId);
-            element.textContent = message;
-            element.className = `p-3 rounded ${type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`;
-            element.classList.remove('hidden');
-        }
-
-        function showPasswordMessage(message, type) {
-            const element = document.getElementById('password-message');
-            element.textContent = message;
-            element.className = `text-sm ${type === 'success' ? 'text-green-600' : 'text-red-600'}`;
-        }
-
-        function showChangePasswordModal() {
-            document.getElementById('change-password-modal').classList.remove('hidden');
-        }
-
-        function hideChangePasswordModal() {
-            document.getElementById('change-password-modal').classList.add('hidden');
-            document.getElementById('current-password').value = '';
-            document.getElementById('new-password-change').value = '';
-            document.getElementById('confirm-new-password').value = '';
-            document.getElementById('password-message').textContent = '';
-        }
-
-        function showAdminPanel() {
-            loadAdminPanelData();
-            document.getElementById('admin-panel').classList.remove('hidden');
-        }
-
-        function hideAdminPanel() {
-            document.getElementById('admin-panel').classList.add('hidden');
         }
 
         // ========== FUNÇÕES DA APLICAÇÃO ==========
 
         function initializeApp() {
+            // Preencher anos
             const yearSelect = document.getElementById('year-select');
-            yearSelect.innerHTML = '';
             for (let i = currentYear - 5; i <= currentYear + 5; i++) {
                 const option = document.createElement('option');
                 option.value = i;
@@ -884,47 +418,428 @@
             }
 
             setCurrentDate();
-            updateMonthTabs();
-            
-            setupAppEventListeners();
+            document.querySelector(`.month-tab[data-month="${currentMonth}"]`).classList.add('bg-blue-500', 'text-white');
         }
 
-        function setupAppEventListeners() {
+        function setCurrentDate() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            document.getElementById('sale-date').value = `${year}-${month}-${day}`;
+        }
+
+        function setupEventListeners() {
+            // Navegação por meses
             document.querySelectorAll('.month-tab').forEach(tab => {
                 tab.addEventListener('click', function() {
+                    document.querySelectorAll('.month-tab').forEach(t => {
+                        t.classList.remove('bg-blue-500', 'text-white');
+                        t.classList.add('bg-gray-200', 'hover:bg-gray-300');
+                    });
+                    
+                    this.classList.remove('bg-gray-200', 'hover:bg-gray-300');
+                    this.classList.add('bg-blue-500', 'text-white');
+                    
                     currentMonth = parseInt(this.getAttribute('data-month'));
-                    updateMonthTabs();
                     updateDisplay();
                 });
             });
 
+            // Alterar ano
             document.getElementById('year-select').addEventListener('change', function() {
                 currentYear = parseInt(this.value);
                 updateDisplay();
             });
 
+            // Formulário de venda
             document.getElementById('sale-form').addEventListener('submit', function(e) {
                 e.preventDefault();
                 addSale();
             });
 
+            // Salvar meta
             document.getElementById('save-goal-btn').addEventListener('click', saveMonthlyGoal);
+
+            // Salvar anotações
             document.getElementById('save-notes-btn').addEventListener('click', saveMonthNotes);
-            document.getElementById('refresh-btn').addEventListener('click', loadUserData);
+
+            // Botões de ação
+            document.getElementById('refresh-btn').addEventListener('click', loadDataFromJsonBin);
             document.getElementById('backup-btn').addEventListener('click', exportData);
             document.getElementById('print-btn').addEventListener('click', printReport);
         }
 
-        // ... (as demais funções da planilha permanecem iguais)
+        function initializeEmptyData() {
+            salesData = {};
+            for (let year = currentYear - 5; year <= currentYear + 5; year++) {
+                salesData[year] = {};
+                for (let month = 0; month < 12; month++) {
+                    salesData[year][month] = [];
+                }
+            }
+        }
 
-        // Função exportData (já existente)
+        function updateDisplay() {
+            updateSalesTable();
+            updateMonthlySummary();
+            updateChart();
+            updateMonthNotes();
+            updateGoalInputs();
+        }
+
+        // Atualizar tabela de vendas
+        function updateSalesTable() {
+            const tbody = document.getElementById('sales-table-body');
+            tbody.innerHTML = '';
+
+            const monthSales = getCurrentMonthSales();
+            let dailyTotal = 0;
+            let currentDate = null;
+
+            monthSales.forEach((sale, index) => {
+                const formattedDate = formatStoredDate(sale.date);
+
+                // Se é um novo dia, adicionar linha de separação
+                if (currentDate !== formattedDate) {
+                    if (currentDate !== null) {
+                        // Adicionar total do dia anterior
+                        addDailyTotalRow(tbody, currentDate, dailyTotal);
+                        dailyTotal = 0;
+                    }
+                    currentDate = formattedDate;
+                }
+
+                // Determinar classe CSS baseada no tipo
+                const rowClass = sale.type === 'return' ? 'return-row' : '';
+                
+                // Adicionar linha da venda
+                const row = document.createElement('tr');
+                if (rowClass) row.classList.add(rowClass);
+                
+                row.innerHTML = `
+                    <td class="px-4 py-2">${formattedDate}</td>
+                    <td class="px-4 py-2">${sale.code}</td>
+                    <td class="px-4 py-2 ${sale.type === 'return' ? 'text-red-600' : ''}">
+                        ${sale.type === 'return' ? '-' : ''}R$ ${formatCurrency(sale.value)}
+                    </td>
+                    <td class="px-4 py-2">${sale.type === 'return' ? 'Devolução' : 'Venda'}</td>
+                    <td class="px-4 py-2">${sale.description || ''}</td>
+                    <td class="px-4 py-2 no-print">
+                        <button class="edit-sale text-blue-500 hover:text-blue-700 mr-2" data-index="${index}">Editar</button>
+                        <button class="delete-sale text-red-500 hover:text-red-700" data-index="${index}">Excluir</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+
+                // Adicionar ao total diário (subtrair se for devolução)
+                if (sale.type === 'return') {
+                    dailyTotal -= sale.value;
+                } else {
+                    dailyTotal += sale.value;
+                }
+
+                // Configurar eventos para os botões de editar e excluir
+                row.querySelector('.edit-sale').addEventListener('click', function() {
+                    editSale(index);
+                });
+                row.querySelector('.delete-sale').addEventListener('click', function() {
+                    deleteSale(index);
+                });
+            });
+
+            // Adicionar total do último dia
+            if (currentDate !== null) {
+                addDailyTotalRow(tbody, currentDate, dailyTotal);
+            }
+
+            // Atualizar total diário no rodapé
+            document.getElementById('daily-total').textContent = `R$ ${formatCurrency(dailyTotal)}`;
+        }
+
+        // Adicionar linha de total diário
+        function addDailyTotalRow(tbody, date, total) {
+            const totalRow = document.createElement('tr');
+            totalRow.classList.add('bg-gray-100', 'font-semibold');
+            totalRow.innerHTML = `
+                <td class="px-4 py-2" colspan="2">Total ${date}:</td>
+                <td class="px-4 py-2">R$ ${formatCurrency(total)}</td>
+                <td colspan="3"></td>
+            `;
+            tbody.appendChild(totalRow);
+        }
+
+        // Atualizar resumo mensal
+        function updateMonthlySummary() {
+            const monthSales = getCurrentMonthSales();
+            
+            // Calcular totais
+            const totalSold = monthSales
+                .filter(sale => sale.type === 'sale')
+                .reduce((sum, sale) => sum + sale.value, 0);
+                
+            const totalReturns = monthSales
+                .filter(sale => sale.type === 'return')
+                .reduce((sum, sale) => sum + sale.value, 0);
+                
+            const netAmount = totalSold - totalReturns;
+            
+            // Obter meta do mês atual
+            const goalKey = `${currentYear}-${currentMonth}`;
+            const monthlyGoal = monthlyGoals[goalKey] ? monthlyGoals[goalKey].goal : 0;
+            const workdays = monthlyGoals[goalKey] ? monthlyGoals[goalKey].workdays : 22;
+            
+            // Calcular valores
+            const remainingGoal = Math.max(0, monthlyGoal - netAmount);
+            const daysRemaining = calculateRemainingWorkdays();
+            const dailyGoal = daysRemaining > 0 ? remainingGoal / daysRemaining : 0;
+
+            // Atualizar exibição
+            document.getElementById('total-sold').textContent = `R$ ${formatCurrency(totalSold)}`;
+            document.getElementById('total-returns').textContent = `R$ ${formatCurrency(totalReturns)}`;
+            document.getElementById('net-amount').textContent = `R$ ${formatCurrency(netAmount)}`;
+            document.getElementById('monthly-goal-display').textContent = `R$ ${formatCurrency(monthlyGoal)}`;
+            document.getElementById('daily-goal').textContent = `R$ ${formatCurrency(dailyGoal)}`;
+        }
+
+        // Calcular dias úteis restantes no mês
+        function calculateRemainingWorkdays() {
+            const today = new Date();
+            const lastDay = new Date(currentYear, currentMonth + 1, 0);
+            let count = 0;
+            
+            for (let day = today.getDate(); day <= lastDay.getDate(); day++) {
+                const date = new Date(currentYear, currentMonth, day);
+                if (date.getDay() !== 0 && date.getDay() !== 6) {
+                    count++;
+                }
+            }
+            
+            return count;
+        }
+
+        // Atualizar gráfico
+        function updateChart() {
+            const ctx = document.getElementById('sales-chart').getContext('2d');
+            
+            // Destruir gráfico anterior se existir
+            if (window.salesChart) {
+                window.salesChart.destroy();
+            }
+            
+            const monthSales = getCurrentMonthSales();
+            
+            // Agrupar vendas por dia
+            const dailySales = {};
+            const dailyReturns = {};
+            
+            monthSales.forEach(sale => {
+                const day = parseInt(sale.date.split('-')[2]);
+                
+                if (sale.type === 'sale') {
+                    if (!dailySales[day]) {
+                        dailySales[day] = 0;
+                    }
+                    dailySales[day] += sale.value;
+                } else if (sale.type === 'return') {
+                    if (!dailyReturns[day]) {
+                        dailyReturns[day] = 0;
+                    }
+                    dailyReturns[day] += sale.value;
+                }
+            });
+            
+            // Preparar dados para o gráfico
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            const labels = [];
+            const salesDataChart = [];
+            const returnsData = [];
+            const netData = [];
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                labels.push(day);
+                const sales = dailySales[day] || 0;
+                const returns = dailyReturns[day] || 0;
+                salesDataChart.push(sales);
+                returnsData.push(returns);
+                netData.push(sales - returns);
+            }
+            
+            // Criar gráfico
+            window.salesChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Vendas (R$)',
+                            data: salesDataChart,
+                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Devoluções (R$)',
+                            data: returnsData,
+                            backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Líquido (R$)',
+                            data: netData,
+                            type: 'line',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 2,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return 'R$ ' + formatCurrency(value);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': R$ ' + formatCurrency(context.parsed.y);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Atualizar anotações do mês
+        function updateMonthNotes() {
+            const notesKey = `${currentYear}-${currentMonth}`;
+            document.getElementById('month-notes').value = monthNotes[notesKey] || '';
+        }
+
+        // Atualizar inputs de meta
+        function updateGoalInputs() {
+            const goalKey = `${currentYear}-${currentMonth}`;
+            const goalData = monthlyGoals[goalKey];
+            
+            if (goalData) {
+                document.getElementById('monthly-goal').value = goalData.goal;
+                document.getElementById('workdays').value = goalData.workdays;
+            } else {
+                document.getElementById('monthly-goal').value = '';
+                document.getElementById('workdays').value = 22;
+            }
+        }
+
+        // Adicionar venda
+        function addSale() {
+            const date = document.getElementById('sale-date').value;
+            const code = document.getElementById('sale-code').value;
+            const value = parseFloat(document.getElementById('sale-value').value);
+            const type = document.getElementById('sale-type').value;
+            const description = document.getElementById('sale-description').value;
+            
+            if (!date || !code || isNaN(value) || value <= 0) {
+                alert('Por favor, preencha todos os campos obrigatórios com valores válidos.');
+                return;
+            }
+            
+            const sale = {
+                date: date,
+                code: code,
+                value: value,
+                type: type,
+                description: description
+            };
+            
+            if (!salesData[currentYear]) salesData[currentYear] = {};
+            if (!salesData[currentYear][currentMonth]) salesData[currentYear][currentMonth] = [];
+            
+            salesData[currentYear][currentMonth].push(sale);
+            salesData[currentYear][currentMonth].sort((a, b) => a.date.localeCompare(b.date));
+            
+            saveDataToJsonBin();
+            updateDisplay();
+            
+            document.getElementById('sale-form').reset();
+            setCurrentDate();
+            document.getElementById('sale-type').value = 'sale';
+        }
+
+        // Editar venda
+        function editSale(index) {
+            const monthSales = getCurrentMonthSales();
+            const sale = monthSales[index];
+            
+            // Preencher formulário com dados da venda
+            document.getElementById('sale-date').value = sale.date;
+            document.getElementById('sale-code').value = sale.code;
+            document.getElementById('sale-value').value = sale.value;
+            document.getElementById('sale-type').value = sale.type;
+            document.getElementById('sale-description').value = sale.description || '';
+            
+            // Remover a venda para adicionar novamente (simulando edição)
+            monthSales.splice(index, 1);
+            saveDataToJsonBin();
+            updateDisplay();
+        }
+
+        // Excluir venda
+        function deleteSale(index) {
+            if (confirm('Tem certeza que deseja excluir este registro?')) {
+                const monthSales = getCurrentMonthSales();
+                monthSales.splice(index, 1);
+                saveDataToJsonBin();
+                updateDisplay();
+            }
+        }
+
+        // Salvar meta mensal
+        function saveMonthlyGoal() {
+            const goal = parseFloat(document.getElementById('monthly-goal').value);
+            const workdays = parseInt(document.getElementById('workdays').value);
+            
+            if (isNaN(goal) || goal < 0 || isNaN(workdays) || workdays < 1 || workdays > 31) {
+                alert('Por favor, insira valores válidos para a meta e dias úteis.');
+                return;
+            }
+            
+            const goalKey = `${currentYear}-${currentMonth}`;
+            monthlyGoals[goalKey] = {
+                goal: goal,
+                workdays: workdays
+            };
+            
+            saveDataToJsonBin();
+            updateDisplay();
+        }
+
+        // Salvar anotações do mês
+        function saveMonthNotes() {
+            const notes = document.getElementById('month-notes').value;
+            const notesKey = `${currentYear}-${currentMonth}`;
+            monthNotes[notesKey] = notes;
+            
+            saveDataToJsonBin();
+        }
+
+        // Exportar dados
         function exportData() {
             const dataToExport = {
                 salesData: salesData,
                 monthlyGoals: monthlyGoals,
                 monthNotes: monthNotes,
-                exportDate: new Date().toISOString(),
-                exportedBy: currentUser.username
+                exportDate: new Date().toISOString()
             };
             
             const dataStr = JSON.stringify(dataToExport, null, 2);
@@ -933,15 +848,90 @@
             const url = URL.createObjectURL(dataBlob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `backup-vendas-${currentUser.username}-${currentYear}-${currentMonth + 1}.json`;
+            link.download = `backup-vendas-${currentYear}-${currentMonth + 1}.json`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
         }
 
-        // ... (implementar as demais funções da planilha)
+        // Imprimir relatório
+        function printReport() {
+            // Atualizar dados no relatório de impressão
+            const monthNames = [
+                'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+            ];
+            
+            document.getElementById('print-month').textContent = monthNames[currentMonth];
+            document.getElementById('print-year').textContent = currentYear;
+            
+            const monthSales = getCurrentMonthSales();
+            
+            // Calcular totais
+            const totalSold = monthSales
+                .filter(sale => sale.type === 'sale')
+                .reduce((sum, sale) => sum + sale.value, 0);
+                
+            const totalReturns = monthSales
+                .filter(sale => sale.type === 'return')
+                .reduce((sum, sale) => sum + sale.value, 0);
+                
+            const netAmount = totalSold - totalReturns;
+            
+            const goalKey = `${currentYear}-${currentMonth}`;
+            const monthlyGoal = monthlyGoals[goalKey] ? monthlyGoals[goalKey].goal : 0;
+            const remainingGoal = Math.max(0, monthlyGoal - netAmount);
+            const daysRemaining = calculateRemainingWorkdays();
+            const dailyGoal = daysRemaining > 0 ? remainingGoal / daysRemaining : 0;
+            
+            document.getElementById('print-total-sold').textContent = `R$ ${formatCurrency(totalSold)}`;
+            document.getElementById('print-total-returns').textContent = `R$ ${formatCurrency(totalReturns)}`;
+            document.getElementById('print-net-amount').textContent = `R$ ${formatCurrency(netAmount)}`;
+            document.getElementById('print-monthly-goal').textContent = `R$ ${formatCurrency(monthlyGoal)}`;
+            document.getElementById('print-difference').textContent = `R$ ${formatCurrency(remainingGoal)}`;
+            document.getElementById('print-daily-goal').textContent = `R$ ${formatCurrency(dailyGoal)}`;
+            
+            // Preencher tabela de impressão
+            const printTableBody = document.querySelector('#print-sales-table tbody');
+            printTableBody.innerHTML = '';
+            
+            monthSales.forEach(sale => {
+                const formattedDate = formatStoredDate(sale.date);
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="border px-4 py-2">${formattedDate}</td>
+                    <td class="border px-4 py-2">${sale.code}</td>
+                    <td class="border px-4 py-2 ${sale.type === 'return' ? 'text-red-600' : ''}">
+                        ${sale.type === 'return' ? '-' : ''}R$ ${formatCurrency(sale.value)}
+                    </td>
+                    <td class="border px-4 py-2">${sale.type === 'return' ? 'Devolução' : 'Venda'}</td>
+                    <td class="border px-4 py-2">${sale.description || ''}</td>
+                `;
+                printTableBody.appendChild(row);
+            });
+            
+            // Imprimir
+            window.print();
+        }
 
+        // Funções auxiliares
+        function getCurrentMonthSales() {
+            if (!salesData[currentYear] || !salesData[currentYear][currentMonth]) {
+                return [];
+            }
+            return salesData[currentYear][currentMonth];
+        }
+
+        function formatStoredDate(dateString) {
+            const parts = dateString.split('-');
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+
+        function formatCurrency(value) {
+            return value.toFixed(2).replace('.', ',');
+        }
     </script>
 </body>
 </html>
