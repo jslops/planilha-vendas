@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planilha Digital de Vendas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .print-only { display: none; }
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block; }
+            .print-full-width { width: 100% !important; }
+            body { font-size: 12px; }
+        }
+        .table-container {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .highlight-goal-met {
+            background-color: #d4edda;
+        }
+        .highlight-goal-not-met {
+            background-color: #f8d7da;
+        }
+        .return-row {
+            background-color: #fff3cd !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="container mx-auto bg-white rounded-lg shadow-md p-6">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-center text-blue-700">Planilha Digital de Vendas</h1>
+            <div class="flex justify-between items-center mt-4 no-print">
+                <div>
+                    <label for="year-select" class="mr-2">Ano:</label>
+                    <select id="year-select" class="border rounded p-1">
+                        <!-- Opções de ano serão preenchidas via JavaScript -->
+                    </select>
+                </div>
+                <div class="flex space-x-2">
+                    <button id="backup-btn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">Exportar Dados</button>
+                    <button id="restore-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">Importar Dados</button>
+                    <button id="print-btn" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded">Imprimir Relatório</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navegação por meses -->
+        <div class="mb-6 no-print">
+            <div class="flex flex-wrap justify-center gap-2">
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="0">Janeiro</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="1">Fevereiro</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="2">Março</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="3">Abril</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="4">Maio</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="5">Junho</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="6">Julho</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="7">Agosto</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="8">Setembro</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="9">Outubro</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="10">Novembro</button>
+                <button class="month-tab px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" data-month="11">Dezembro</button>
+            </div>
+        </div>
+
+        <!-- Configuração de meta mensal -->
+        <div class="mb-6 p-4 bg-blue-50 rounded-lg no-print">
+            <h2 class="text-xl font-semibold mb-2">Meta Mensal</h2>
+            <div class="flex items-center space-x-4">
+                <div>
+                    <label for="monthly-goal" class="block text-sm font-medium">Meta do Mês (R$):</label>
+                    <input type="number" id="monthly-goal" class="border rounded p-2 w-40" min="0" step="0.01">
+                </div>
+                <div>
+                    <label for="workdays" class="block text-sm font-medium">Dias Úteis no Mês:</label>
+                    <input type="number" id="workdays" class="border rounded p-2 w-40" min="1" max="31">
+                </div>
+                <button id="save-goal-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mt-5">Salvar Meta</button>
+            </div>
+        </div>
+
+        <!-- Resumo mensal -->
+        <div class="mb-6 p-4 bg-green-50 rounded-lg">
+            <h2 class="text-xl font-semibold mb-2">Resumo do Mês</h2>
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div class="bg-white p-4 rounded shadow">
+                    <h3 class="font-medium">Total Vendido</h3>
+                    <p id="total-sold" class="text-2xl font-bold text-green-600">R$ 0,00</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow">
+                    <h3 class="font-medium">Total Devoluções</h3>
+                    <p id="total-returns" class="text-2xl font-bold text-red-600">R$ 0,00</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow">
+                    <h3 class="font-medium">Líquido</h3>
+                    <p id="net-amount" class="text-2xl font-bold text-blue-600">R$ 0,00</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow">
+                    <h3 class="font-medium">Meta Mensal</h3>
+                    <p id="monthly-goal-display" class="text-2xl font-bold text-purple-600">R$ 0,00</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow">
+                    <h3 class="font-medium">Meta Diária</h3>
+                    <p id="daily-goal" class="text-2xl font-bold text-orange-600">R$ 0,00</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gráfico de progresso -->
+        <div class="mb-6 no-print">
+            <canvas id="sales-chart" height="100"></canvas>
+        </div>
+
+        <!-- Formulário para adicionar venda -->
+        <div class="mb-6 p-4 bg-gray-50 rounded-lg no-print">
+            <h2 class="text-xl font-semibold mb-2">Adicionar Venda</h2>
+            <form id="sale-form" class="grid grid-cols-1 md:grid-cols-6 gap-4">
+                <div>
+                    <label for="sale-date" class="block text-sm font-medium">Data:</label>
+                    <input type="date" id="sale-date" class="border rounded p-2 w-full" required>
+                </div>
+                <div>
+                    <label for="sale-code" class="block text-sm font-medium">Código:</label>
+                    <input type="text" id="sale-code" class="border rounded p-2 w-full" required>
+                </div>
+                <div>
+                    <label for="sale-value" class="block text-sm font-medium">Valor (R$):</label>
+                    <input type="number" id="sale-value" class="border rounded p-2 w-full" min="0" step="0.01" required>
+                </div>
+                <div>
+                    <label for="sale-type" class="block text-sm font-medium">Tipo:</label>
+                    <select id="sale-type" class="border rounded p-2 w-full">
+                        <option value="sale">Venda</option>
+                        <option value="return">Devolução</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="sale-description" class="block text-sm font-medium">Descrição:</label>
+                    <input type="text" id="sale-description" class="border rounded p-2 w-full">
+                </div>
+                <div class="flex items-end">
+                    <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded w-full">Adicionar</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tabela de vendas -->
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-2">Vendas e Devoluções do Mês</h2>
+            <div class="table-container border rounded">
+                <table id="sales-table" class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor (R$)</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrição</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider no-print">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sales-table-body" class="bg-white divide-y divide-gray-200">
+                        <!-- As vendas serão preenchidas via JavaScript -->
+                    </tbody>
+                    <tfoot class="bg-gray-50 font-semibold">
+                        <tr>
+                            <td class="px-4 py-2" colspan="2">Total Diário:</td>
+                            <td id="daily-total" class="px-4 py-2">R$ 0,00</td>
+                            <td colspan="3"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- Anotações do mês -->
+        <div class="mb-6 no-print">
+            <h2 class="text-xl font-semibold mb-2">Anotações do Mês</h2>
+            <textarea id="month-notes" class="w-full border rounded p-2 h-32" placeholder="Adicione suas anotações aqui..."></textarea>
+            <button id="save-notes-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mt-2">Salvar Anotações</button>
+        </div>
+
+        <!-- Relatório para impressão -->
+        <div id="print-report" class="print-only">
+            <h2 class="text-2xl font-bold text-center mb-4">Relatório de Vendas</h2>
+            <div class="mb-4">
+                <p><strong>Mês:</strong> <span id="print-month"></span></p>
+                <p><strong>Ano:</strong> <span id="print-year"></span></p>
+            </div>
+            <div class="mb-4 grid grid-cols-2 gap-4">
+                <div>
+                    <p><strong>Total Vendido:</strong> <span id="print-total-sold"></span></p>
+                    <p><strong>Total Devoluções:</strong> <span id="print-total-returns"></span></p>
+                    <p><strong>Líquido:</strong> <span id="print-net-amount"></span></p>
+                </div>
+                <div>
+                    <p><strong>Meta Mensal:</strong> <span id="print-monthly-goal"></span></p>
+                    <p><strong>Diferença:</strong> <span id="print-difference"></span></p>
+                    <p><strong>Meta Diária:</strong> <span id="print-daily-goal"></span></p>
+                </div>
+            </div>
+            <table id="print-sales-table" class="print-full-width min-w-full border">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="border px-4 py-2 text-left">Data</th>
+                        <th class="border px-4 py-2 text-left">Código</th>
+                        <th class="border px-4 py-2 text-left">Valor (R$)</th>
+                        <th class="border px-4 py-2 text-left">Tipo</th>
+                        <th class="border px-4 py-2 text-left">Descrição</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Conteúdo será preenchido via JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal para importação de dados -->
+    <div id="import-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg font-medium text-gray-900">Importar Dados</h3>
+                <div class="mt-2 px-7 py-3">
+                    <input type="file" id="import-file" class="w-full border rounded p-2" accept=".json">
+                </div>
+                <div class="flex justify-center mt-4">
+                    <button id="confirm-import" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mr-2">Importar</button>
+                    <button id="cancel-import" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variáveis globais
+        let currentYear = new Date().getFullYear();
+        let currentMonth = new Date().getMonth();
+        let salesData = {};
+        let monthlyGoals = {};
+        let monthNotes = {};
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+            setupEventListeners();
+            loadData();
+            updateDisplay();
+        });
+
+        // Inicializar a aplicação
+        function initializeApp() {
+            // Preencher anos (5 anos para trás, 5 anos para frente)
+            const yearSelect = document.getElementById('year-select');
+            for (let i = currentYear - 5; i <= currentYear + 5; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = i;
+                if (i === currentYear) option.selected = true;
+                yearSelect.appendChild(option);
+            }
+
+            // Definir data atual no formulário - CORREÇÃO DEFINITIVA
+            setCurrentDate();
+            
+            // Ativar o mês atual
+            document.querySelector(`.month-tab[data-month="${currentMonth}"]`).classList.add('bg-blue-500', 'text-white');
+        }
+
+        // Função corrigida para definir a data atual - SOLUÇÃO DEFINITIVA
+        function setCurrentDate() {
+            const now = new Date();
+            // Usar o método toLocaleDateString para obter a data no formato correto
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const formattedDate = `${year}-${month}-${day}`;
+            document.getElementById('sale-date').value = formattedDate;
+        }
+
+        // Configurar event listeners
+        function setupEventListeners() {
+            // Navegação por meses
+            document.querySelectorAll('.month-tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // Remover classe ativa de todas as abas
+                    document.querySelectorAll('.month-tab').forEach(t => {
+                        t.classList.remove('bg-blue-500', 'text-white');
+                        t.classList.add('bg-gray-200', 'hover:bg-gray-300');
+                    });
+                    
+                    // Adicionar classe ativa à aba clicada
+                    this.classList.remove('bg-gray-200', 'hover:bg-gray-300');
+                    this.classList.add('bg-blue-500', 'text-white');
+                    
+                    // Atualizar mês atual
+                    currentMonth = parseInt(this.getAttribute('data-month'));
+                    updateDisplay();
+                });
+            });
+
+            // Alterar ano
+            document.getElementById('year-select').addEventListener('change', function() {
+                currentYear = parseInt(this.value);
+                updateDisplay();
+            });
+
+            // Formulário de venda
+            document.getElementById('sale-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                addSale();
+            });
+
+            // Salvar meta
+            document.getElementById('save-goal-btn').addEventListener('click', saveMonthlyGoal);
+
+            // Salvar anotações
+            document.getElementById('save-notes-btn').addEventListener('click', saveMonthNotes);
+
+            // Botões de ação
+            document.getElementById('backup-btn').addEventListener('click', exportData);
+            document.getElementById('restore-btn').addEventListener('click', showImportModal);
+            document.getElementById('print-btn').addEventListener('click', printReport);
+
+            // Modal de importação
+            document.getElementById('confirm-import').addEventListener('click', importData);
+            document.getElementById('cancel-import').addEventListener('click', hideImportModal);
+        }
+
+        // Carregar dados do localStorage
+        function loadData() {
+            // Carregar dados de vendas
+            const savedSales = localStorage.getItem('salesData');
+            if (savedSales) {
+                salesData = JSON.parse(savedSales);
+            } else {
+                // Inicializar estrutura vazia
+                initializeEmptyData();
+            }
+
+            // Carregar metas mensais
+            const savedGoals = localStorage.getItem('monthlyGoals');
+            if (savedGoals) {
+                monthlyGoals = JSON.parse(savedGoals);
+            }
+
+            // Carregar anotações
+            const savedNotes = localStorage.getItem('monthNotes');
+            if (savedNotes) {
+                monthNotes = JSON.parse(savedNotes);
+            }
+        }
+
+        // Inicializar estrutura de dados vazia
+        function initializeEmptyData() {
+            salesData = {};
+            for (let year = currentYear - 5; year <= currentYear + 5; year++) {
+                salesData[year] = {};
+                for (let month = 0; month < 12; month++) {
+                    salesData[year][month] = [];
+                }
+            }
+        }
+
+        // Salvar dados no localStorage
+        function saveData() {
+            localStorage.setItem('salesData', JSON.stringify(salesData));
+            localStorage.setItem('monthlyGoals', JSON.stringify(monthlyGoals));
+            localStorage.setItem('monthNotes', JSON.stringify(monthNotes));
+        }
+
+        // Atualizar a exibição
+        function updateDisplay() {
+            updateSalesTable();
+            updateMonthlySummary();
+            updateChart();
+            updateMonthNotes();
+            updateGoalInputs();
+        }
+
+        // Atualizar tabela de vendas
+        function updateSalesTable() {
+            const tbody = document.getElementById('sales-table-body');
+            tbody.innerHTML = '';
+
+            const monthSales = getCurrentMonthSales();
+            let dailyTotal = 0;
+            let currentDate = null;
+
+            monthSales.forEach((sale, index) => {
+                // CORREÇÃO: Usar a data exatamente como foi salva, sem conversão para Date
+                const formattedDate = formatStoredDate(sale.date);
+
+                // Se é um novo dia, adicionar linha de separação
+                if (currentDate !== formattedDate) {
+                    if (currentDate !== null) {
+                        // Adicionar total do dia anterior
+                        addDailyTotalRow(tbody, currentDate, dailyTotal);
+                        dailyTotal = 0;
+                    }
+                    currentDate = formattedDate;
+                }
+
+                // Determinar classe CSS baseada no tipo
+                const rowClass = sale.type === 'return' ? 'return-row' : '';
+                
+                // Adicionar linha da venda
+                const row = document.createElement('tr');
+                if (rowClass) row.classList.add(rowClass);
+                
+                row.innerHTML = `
+                    <td class="px-4 py-2">${formattedDate}</td>
+                    <td class="px-4 py-2">${sale.code}</td>
+                    <td class="px-4 py-2 ${sale.type === 'return' ? 'text-red-600' : ''}">
+                        ${sale.type === 'return' ? '-' : ''}R$ ${formatCurrency(sale.value)}
+                    </td>
+                    <td class="px-4 py-2">${sale.type === 'return' ? 'Devolução' : 'Venda'}</td>
+                    <td class="px-4 py-2">${sale.description || ''}</td>
+                    <td class="px-4 py-2 no-print">
+                        <button class="edit-sale text-blue-500 hover:text-blue-700 mr-2" data-index="${index}">Editar</button>
+                        <button class="delete-sale text-red-500 hover:text-red-700" data-index="${index}">Excluir</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+
+                // Adicionar ao total diário (subtrair se for devolução)
+                if (sale.type === 'return') {
+                    dailyTotal -= sale.value;
+                } else {
+                    dailyTotal += sale.value;
+                }
+
+                // Configurar eventos para os botões de editar e excluir
+                row.querySelector('.edit-sale').addEventListener('click', function() {
+                    editSale(index);
+                });
+                row.querySelector('.delete-sale').addEventListener('click', function() {
+                    deleteSale(index);
+                });
+            });
+
+            // Adicionar total do último dia
+            if (currentDate !== null) {
+                addDailyTotalRow(tbody, currentDate, dailyTotal);
+            }
+
+            // Atualizar total diário no rodapé
+            document.getElementById('daily-total').textContent = `R$ ${formatCurrency(dailyTotal)}`;
+        }
+
+        // Adicionar linha de total diário
+        function addDailyTotalRow(tbody, date, total) {
+            const totalRow = document.createElement('tr');
+            totalRow.classList.add('bg-gray-100', 'font-semibold');
+            totalRow.innerHTML = `
+                <td class="px-4 py-2" colspan="2">Total ${date}:</td>
+                <td class="px-4 py-2">R$ ${formatCurrency(total)}</td>
+                <td colspan="3"></td>
+            `;
+            tbody.appendChild(totalRow);
+        }
+
+        // Atualizar resumo mensal
+        function updateMonthlySummary() {
+            const monthSales = getCurrentMonthSales();
+            
+            // Calcular totais
+            const totalSold = monthSales
+                .filter(sale => sale.type === 'sale')
+                .reduce((sum, sale) => sum + sale.value, 0);
+                
+            const totalReturns = monthSales
+                .filter(sale => sale.type === 'return')
+                .reduce((sum, sale) => sum + sale.value, 0);
+                
+            const netAmount = totalSold - totalReturns;
+            
+            // Obter meta do mês atual
+            const goalKey = `${currentYear}-${currentMonth}`;
+            const monthlyGoal = monthlyGoals[goalKey] ? monthlyGoals[goalKey].goal : 0;
+            const workdays = monthlyGoals[goalKey] ? monthlyGoals[goalKey].workdays : 22; // Padrão: 22 dias úteis
+            
+            // Calcular valores
+            const remainingGoal = Math.max(0, monthlyGoal - netAmount);
+            const daysRemaining = calculateRemainingWorkdays();
+            const dailyGoal = daysRemaining > 0 ? remainingGoal / daysRemaining : 0;
+
+            // Atualizar exibição
+            document.getElementById('total-sold').textContent = `R$ ${formatCurrency(totalSold)}`;
+            document.getElementById('total-returns').textContent = `R$ ${formatCurrency(totalReturns)}`;
+            document.getElementById('net-amount').textContent = `R$ ${formatCurrency(netAmount)}`;
+            document.getElementById('monthly-goal-display').textContent = `R$ ${formatCurrency(monthlyGoal)}`;
+            document.getElementById('daily-goal').textContent = `R$ ${formatCurrency(dailyGoal)}`;
+        }
+
+        // Calcular dias úteis restantes no mês
+        function calculateRemainingWorkdays() {
+            const today = new Date();
+            const lastDay = new Date(currentYear, currentMonth + 1, 0);
+            let count = 0;
+            
+            for (let day = today.getDate(); day <= lastDay.getDate(); day++) {
+                const date = new Date(currentYear, currentMonth, day);
+                // Desconsiderar sábados (6) e domingos (0)
+                if (date.getDay() !== 0 && date.getDay() !== 6) {
+                    count++;
+                }
+            }
+            
+            return count;
+        }
+
+        // Atualizar gráfico
+        function updateChart() {
+            const ctx = document.getElementById('sales-chart').getContext('2d');
+            
+            // Destruir gráfico anterior se existir
+            if (window.salesChart) {
+                window.salesChart.destroy();
+            }
+            
+            const monthSales = getCurrentMonthSales();
+            
+            // Agrupar vendas por dia
+            const dailySales = {};
+            const dailyReturns = {};
+            
+            monthSales.forEach(sale => {
+                // CORREÇÃO: Extrair o dia diretamente da string de data
+                const day = parseInt(sale.date.split('-')[2]);
+                
+                if (sale.type === 'sale') {
+                    if (!dailySales[day]) {
+                        dailySales[day] = 0;
+                    }
+                    dailySales[day] += sale.value;
+                } else if (sale.type === 'return') {
+                    if (!dailyReturns[day]) {
+                        dailyReturns[day] = 0;
+                    }
+                    dailyReturns[day] += sale.value;
+                }
+            });
+            
+            // Preparar dados para o gráfico
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            const labels = [];
+            const salesData = [];
+            const returnsData = [];
+            const netData = [];
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                labels.push(day);
+                const sales = dailySales[day] || 0;
+                const returns = dailyReturns[day] || 0;
+                salesData.push(sales);
+                returnsData.push(returns);
+                netData.push(sales - returns);
+            }
+            
+            // Criar gráfico
+            window.salesChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Vendas (R$)',
+                            data: salesData,
+                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Devoluções (R$)',
+                            data: returnsData,
+                            backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Líquido (R$)',
+                            data: netData,
+                            type: 'line',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 2,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return 'R$ ' + formatCurrency(value);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': R$ ' + formatCurrency(context.parsed.y);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Atualizar anotações do mês
+        function updateMonthNotes() {
+            const notesKey = `${currentYear}-${currentMonth}`;
+            document.getElementById('month-notes').value = monthNotes[notesKey] || '';
+        }
+
+        // Atualizar inputs de meta
+        function updateGoalInputs() {
+            const goalKey = `${currentYear}-${currentMonth}`;
+            const goalData = monthlyGoals[goalKey];
+            
+            if (goalData) {
+                document.getElementById('monthly-goal').value = goalData.goal;
+                document.getElementById('workdays').value = goalData.workdays;
+            } else {
+                document.getElementById('monthly-goal').value = '';
+                document.getElementById('workdays').value = 22; // Valor padrão
+            }
+        }
+
+        // Adicionar venda
+        function addSale() {
+            const date = document.getElementById('sale-date').value;
+            const code = document.getElementById('sale-code').value;
+            const value = parseFloat(document.getElementById('sale-value').value);
+            const type = document.getElementById('sale-type').value;
+            const description = document.getElementById('sale-description').value;
+            
+            // Validar dados
+            if (!date || !code || isNaN(value) || value <= 0) {
+                alert('Por favor, preencha todos os campos obrigatórios com valores válidos.');
+                return;
+            }
+            
+            // CORREÇÃO: Salvar a data exatamente como foi inserida no campo
+            const sale = {
+                date: date, // Salvar diretamente a string do campo de data
+                code: code,
+                value: value,
+                type: type,
+                description: description
+            };
+            
+            // Garantir que a estrutura de dados existe
+            if (!salesData[currentYear]) salesData[currentYear] = {};
+            if (!salesData[currentYear][currentMonth]) salesData[currentYear][currentMonth] = [];
+            
+            salesData[currentYear][currentMonth].push(sale);
+            
+            // Ordenar vendas por data (agora usando a string diretamente)
+            salesData[currentYear][currentMonth].sort((a, b) => a.date.localeCompare(b.date));
+            
+            // Salvar dados e atualizar exibição
+            saveData();
+            updateDisplay();
+            
+            // Limpar formulário
+            document.getElementById('sale-form').reset();
+            // CORREÇÃO: Usar a função corrigida para definir a data atual
+            setCurrentDate();
+            document.getElementById('sale-type').value = 'sale'; // Reset para venda
+        }
+
+        // Editar venda
+        function editSale(index) {
+            const monthSales = getCurrentMonthSales();
+            const sale = monthSales[index];
+            
+            // Preencher formulário com dados da venda
+            document.getElementById('sale-date').value = sale.date; // Já está no formato correto
+            document.getElementById('sale-code').value = sale.code;
+            document.getElementById('sale-value').value = sale.value;
+            document.getElementById('sale-type').value = sale.type;
+            document.getElementById('sale-description').value = sale.description || '';
+            
+            // Remover a venda para adicionar novamente (simulando edição)
+            monthSales.splice(index, 1);
+            saveData();
+            updateDisplay();
+        }
+
+        // Excluir venda
+        function deleteSale(index) {
+            if (confirm('Tem certeza que deseja excluir este registro?')) {
+                const monthSales = getCurrentMonthSales();
+                monthSales.splice(index, 1);
+                saveData();
+                updateDisplay();
+            }
+        }
+
+        // Salvar meta mensal
+        function saveMonthlyGoal() {
+            const goal = parseFloat(document.getElementById('monthly-goal').value);
+            const workdays = parseInt(document.getElementById('workdays').value);
+            
+            if (isNaN(goal) || goal < 0 || isNaN(workdays) || workdays < 1 || workdays > 31) {
+                alert('Por favor, insira valores válidos para a meta e dias úteis.');
+                return;
+            }
+            
+            const goalKey = `${currentYear}-${currentMonth}`;
+            monthlyGoals[goalKey] = {
+                goal: goal,
+                workdays: workdays
+            };
+            
+            saveData();
+            updateDisplay();
+        }
+
+        // Salvar anotações do mês
+        function saveMonthNotes() {
+            const notes = document.getElementById('month-notes').value;
+            const notesKey = `${currentYear}-${currentMonth}`;
+            monthNotes[notesKey] = notes;
+            
+            saveData();
+            alert('Anotações salvas com sucesso!');
+        }
+
+        // Exportar dados
+        function exportData() {
+            const dataToExport = {
+                salesData: salesData,
+                monthlyGoals: monthlyGoals,
+                monthNotes: monthNotes,
+                exportDate: new Date().toISOString()
+            };
+            
+            const dataStr = JSON.stringify(dataToExport, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `backup-vendas-${currentYear}-${currentMonth + 1}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        // Mostrar modal de importação
+        function showImportModal() {
+            document.getElementById('import-modal').classList.remove('hidden');
+        }
+
+        // Ocultar modal de importação
+        function hideImportModal() {
+            document.getElementById('import-modal').classList.add('hidden');
+            document.getElementById('import-file').value = '';
+        }
+
+        // Importar dados
+        function importData() {
+            const fileInput = document.getElementById('import-file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Por favor, selecione um arquivo para importar.');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    // Validar estrutura dos dados
+                    if (!importedData.salesData || !importedData.monthlyGoals || !importedData.monthNotes) {
+                        throw new Error('Arquivo inválido: estrutura de dados incorreta.');
+                    }
+                    
+                    // Confirmar substituição
+                    if (confirm('Isso substituirá todos os dados atuais. Continuar?')) {
+                        salesData = importedData.salesData;
+                        monthlyGoals = importedData.monthlyGoals;
+                        monthNotes = importedData.monthNotes;
+                        
+                        saveData();
+                        updateDisplay();
+                        hideImportModal();
+                        alert('Dados importados com sucesso!');
+                    }
+                } catch (error) {
+                    alert('Erro ao importar dados: ' + error.message);
+                }
+            };
+            
+            reader.readAsText(file);
+        }
+
+        // Imprimir relatório
+        function printReport() {
+            // Atualizar dados no relatório de impressão
+            const monthNames = [
+                'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+            ];
+            
+            document.getElementById('print-month').textContent = monthNames[currentMonth];
+            document.getElementById('print-year').textContent = currentYear;
+            
+            const monthSales = getCurrentMonthSales();
+            
+            // Calcular totais
+            const totalSold = monthSales
+                .filter(sale => sale.type === 'sale')
+                .reduce((sum, sale) => sum + sale.value, 0);
+                
+            const totalReturns = monthSales
+                .filter(sale => sale.type === 'return')
+                .reduce((sum, sale) => sum + sale.value, 0);
+                
+            const netAmount = totalSold - totalReturns;
+            
+            const goalKey = `${currentYear}-${currentMonth}`;
+            const monthlyGoal = monthlyGoals[goalKey] ? monthlyGoals[goalKey].goal : 0;
+            const remainingGoal = Math.max(0, monthlyGoal - netAmount);
+            const daysRemaining = calculateRemainingWorkdays();
+            const dailyGoal = daysRemaining > 0 ? remainingGoal / daysRemaining : 0;
+            
+            document.getElementById('print-total-sold').textContent = `R$ ${formatCurrency(totalSold)}`;
+            document.getElementById('print-total-returns').textContent = `R$ ${formatCurrency(totalReturns)}`;
+            document.getElementById('print-net-amount').textContent = `R$ ${formatCurrency(netAmount)}`;
+            document.getElementById('print-monthly-goal').textContent = `R$ ${formatCurrency(monthlyGoal)}`;
+            document.getElementById('print-difference').textContent = `R$ ${formatCurrency(remainingGoal)}`;
+            document.getElementById('print-daily-goal').textContent = `R$ ${formatCurrency(dailyGoal)}`;
+            
+            // Preencher tabela de impressão
+            const printTableBody = document.querySelector('#print-sales-table tbody');
+            printTableBody.innerHTML = '';
+            
+            monthSales.forEach(sale => {
+                const formattedDate = formatStoredDate(sale.date);
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="border px-4 py-2">${formattedDate}</td>
+                    <td class="border px-4 py-2">${sale.code}</td>
+                    <td class="border px-4 py-2 ${sale.type === 'return' ? 'text-red-600' : ''}">
+                        ${sale.type === 'return' ? '-' : ''}R$ ${formatCurrency(sale.value)}
+                    </td>
+                    <td class="border px-4 py-2">${sale.type === 'return' ? 'Devolução' : 'Venda'}</td>
+                    <td class="border px-4 py-2">${sale.description || ''}</td>
+                `;
+                printTableBody.appendChild(row);
+            });
+            
+            // Imprimir
+            window.print();
+        }
+
+        // Funções auxiliares
+        function getCurrentMonthSales() {
+            if (!salesData[currentYear] || !salesData[currentYear][currentMonth]) {
+                return [];
+            }
+            return salesData[currentYear][currentMonth];
+        }
+
+        // CORREÇÃO: Nova função para formatar a data armazenada
+        function formatStoredDate(dateString) {
+            // A data já está no formato YYYY-MM-DD, converter para DD/MM/YYYY
+            const parts = dateString.split('-');
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+
+        function formatCurrency(value) {
+            return value.toFixed(2).replace('.', ',');
+        }
+    </script>
+</body>
+</html>
