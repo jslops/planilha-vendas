@@ -141,9 +141,6 @@
                     <button id="refresh-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 md:px-4 md:py-2 rounded text-sm">
                         🔄 Atualizar
                     </button>
-                    <button id="clear-data-btn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 md:px-4 md:py-2 rounded text-sm">
-                        🗑️ Limpar Dados
-                    </button>
                 </div>
             </div>
         </header>
@@ -380,17 +377,11 @@
         // Inicialização
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Iniciando planilha de vendas...');
-            console.log('Dispositivo:', isMobile() ? 'Mobile' : 'Desktop');
             initializeApp();
             setupEventListeners();
             loadData();
             updateDisplay();
         });
-
-        // ========== DETECÇÃO DE DISPOSITIVO ==========
-        function isMobile() {
-            return window.innerWidth <= 768;
-        }
 
         // ========== FUNÇÕES PRINCIPAIS ==========
 
@@ -453,52 +444,14 @@
             document.getElementById('refresh-btn').addEventListener('click', function() {
                 loadData();
                 updateDisplay();
-                showSyncStatus('Dados recarregados!', 'saved');
             });
-            
             document.getElementById('backup-btn').addEventListener('click', exportData);
             document.getElementById('print-btn').addEventListener('click', printReport);
-            
-            // Novo botão para limpar dados (útil para debug)
-            document.getElementById('clear-data-btn').addEventListener('click', function() {
-                if (confirm('⚠️ TEM CERTEZA que deseja limpar TODOS os dados? Esta ação não pode ser desfeita!')) {
-                    clearAllData();
-                }
-            });
 
             // Importar dados
             document.getElementById('import-btn').addEventListener('click', showImportModal);
             document.getElementById('confirm-import').addEventListener('click', importData);
             document.getElementById('cancel-import').addEventListener('click', hideImportModal);
-
-            // Debug: log quando a página é fechada/recarregada
-            window.addEventListener('beforeunload', function() {
-                console.log('Página está sendo fechada/recarregada. Dados atuais:');
-                console.log('salesData:', salesData);
-                console.log('monthlyGoals:', monthlyGoals);
-                console.log('monthNotes:', monthNotes);
-            });
-        }
-
-        // ========== FUNÇÃO PARA LIMPAR DADOS ==========
-        function clearAllData() {
-            salesData = {};
-            monthlyGoals = {};
-            monthNotes = {};
-            
-            // Reinicializar estrutura vazia
-            initializeEmptyData();
-            
-            // Limpar localStorage
-            localStorage.removeItem('salesData');
-            localStorage.removeItem('monthlyGoals');
-            localStorage.removeItem('monthNotes');
-            
-            // Atualizar display
-            updateDisplay();
-            
-            showSyncStatus('Todos os dados foram limpos!', 'saved');
-            console.log('Dados limpos com sucesso');
         }
 
         // ========== FUNÇÃO DE IMPORTAR DADOS ==========
@@ -565,101 +518,42 @@
             element.className = `mt-2 text-sm ${type === 'success' ? 'text-green-600' : 'text-red-600'}`;
         }
 
-        // ========== FUNÇÕES DE DADOS CORRIGIDAS ==========
+        // ========== FUNÇÕES DE DADOS ==========
 
         function loadData() {
-            console.log('Carregando dados do localStorage...');
+            console.log('Carregando dados...');
             
-            try {
-                // Carregar dados de vendas
-                const savedSales = localStorage.getItem('salesData');
-                if (savedSales) {
-                    salesData = JSON.parse(savedSales);
-                    console.log('Dados de vendas carregados:', Object.keys(salesData).length, 'anos');
-                } else {
-                    console.log('Nenhum dado de vendas encontrado, inicializando estrutura vazia');
-                    initializeEmptyData();
-                }
-
-                // Carregar metas mensais
-                const savedGoals = localStorage.getItem('monthlyGoals');
-                if (savedGoals) {
-                    monthlyGoals = JSON.parse(savedGoals);
-                    console.log('Metas carregadas:', Object.keys(monthlyGoals).length, 'meses');
-                } else {
-                    console.log('Nenhuma meta encontrada');
-                    monthlyGoals = {};
-                }
-
-                // Carregar anotações
-                const savedNotes = localStorage.getItem('monthNotes');
-                if (savedNotes) {
-                    monthNotes = JSON.parse(savedNotes);
-                    console.log('Anotações carregadas:', Object.keys(monthNotes).length, 'meses');
-                } else {
-                    console.log('Nenhuma anotação encontrada');
-                    monthNotes = {};
-                }
-                
-                console.log('Dados carregados com sucesso do localStorage');
-                console.log('Dispositivo:', isMobile() ? 'Mobile' : 'Desktop');
-                
-            } catch (error) {
-                console.error('Erro ao carregar dados do localStorage:', error);
-                console.log('Inicializando dados vazios devido ao erro');
+            // Carregar dados de vendas
+            const savedSales = localStorage.getItem('salesData');
+            if (savedSales) {
+                salesData = JSON.parse(savedSales);
+            } else {
                 initializeEmptyData();
-                monthlyGoals = {};
-                monthNotes = {};
             }
+
+            // Carregar metas mensais
+            const savedGoals = localStorage.getItem('monthlyGoals');
+            if (savedGoals) {
+                monthlyGoals = JSON.parse(savedGoals);
+            }
+
+            // Carregar anotações
+            const savedNotes = localStorage.getItem('monthNotes');
+            if (savedNotes) {
+                monthNotes = JSON.parse(savedNotes);
+            }
+            
+            console.log('Dados carregados com sucesso');
         }
 
         function saveData() {
-            console.log('Salvando dados no localStorage...');
-            console.log('Dispositivo:', isMobile() ? 'Mobile' : 'Desktop');
-            
             showSyncStatus('Salvando...', 'saving');
             
-            try {
-                // Verificar se os dados são válidos antes de salvar
-                if (!salesData || typeof salesData !== 'object') {
-                    console.error('Dados de vendas inválidos:', salesData);
-                    salesData = {};
-                }
-                if (!monthlyGoals || typeof monthlyGoals !== 'object') {
-                    console.error('Metas inválidas:', monthlyGoals);
-                    monthlyGoals = {};
-                }
-                if (!monthNotes || typeof monthNotes !== 'object') {
-                    console.error('Anotações inválidas:', monthNotes);
-                    monthNotes = {};
-                }
-                
-                // Salvar no localStorage
-                localStorage.setItem('salesData', JSON.stringify(salesData));
-                localStorage.setItem('monthlyGoals', JSON.stringify(monthlyGoals));
-                localStorage.setItem('monthNotes', JSON.stringify(monthNotes));
-                
-                console.log('Dados salvos com sucesso no localStorage');
-                console.log('salesData tamanho:', JSON.stringify(salesData).length, 'caracteres');
-                console.log('monthlyGoals tamanho:', JSON.stringify(monthlyGoals).length, 'caracteres');
-                console.log('monthNotes tamanho:', JSON.stringify(monthNotes).length, 'caracteres');
-                
-                showSyncStatus('Dados salvos!', 'saved');
-                
-            } catch (error) {
-                console.error('Erro ao salvar dados no localStorage:', error);
-                showSyncStatus('Erro ao salvar!', 'error');
-                
-                // Tentar salvar em sessionStorage como fallback
-                try {
-                    sessionStorage.setItem('salesData_backup', JSON.stringify(salesData));
-                    sessionStorage.setItem('monthlyGoals_backup', JSON.stringify(monthlyGoals));
-                    sessionStorage.setItem('monthNotes_backup', JSON.stringify(monthNotes));
-                    console.log('Dados salvos no sessionStorage como backup');
-                } catch (fallbackError) {
-                    console.error('Erro ao salvar no sessionStorage:', fallbackError);
-                }
-            }
+            localStorage.setItem('salesData', JSON.stringify(salesData));
+            localStorage.setItem('monthlyGoals', JSON.stringify(monthlyGoals));
+            localStorage.setItem('monthNotes', JSON.stringify(monthNotes));
+            
+            showSyncStatus('Dados salvos!', 'saved');
         }
 
         function initializeEmptyData() {
@@ -670,7 +564,6 @@
                     salesData[year][month] = [];
                 }
             }
-            console.log('Estrutura de dados vazia inicializada');
         }
 
         // ========== FUNÇÕES DE INTERFACE ==========
@@ -714,7 +607,6 @@
         }
 
         function updateDisplay() {
-            console.log('Atualizando display... Mês:', currentMonth + 1, 'Ano:', currentYear);
             updateSalesTable();
             updateMonthlySummary();
             updateChart();
@@ -731,8 +623,6 @@
             const monthSales = getCurrentMonthSales();
             let dailyTotal = 0;
             let currentDate = null;
-
-            console.log('Vendas do mês atual:', monthSales.length);
 
             if (monthSales.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">Nenhuma venda cadastrada este mês</td></tr>';
@@ -858,20 +748,333 @@
                 averageElement.classList.remove('text-indigo-600', 'text-green-600');
                 averageElement.classList.add('text-red-600');
             }
-
-            console.log('Resumo atualizado - Vendido:', totalSold, 'Meta:', monthlyGoal, 'Média necessária:', averageNeeded);
         }
 
-        // ... (restante das funções permanecem iguais)
+        function calculatePassedWorkdays() {
+            const today = new Date();
+            const firstDay = new Date(currentYear, currentMonth, 1);
+            let count = 0;
+            
+            for (let day = firstDay.getDate(); day <= today.getDate(); day++) {
+                const date = new Date(currentYear, currentMonth, day);
+                if (date.getDay() !== 0 && date.getDay() !== 6 && date <= today) {
+                    count++;
+                }
+            }
+            
+            return count;
+        }
+
+        function calculateRemainingWorkdays() {
+            const today = new Date();
+            const lastDay = new Date(currentYear, currentMonth + 1, 0);
+            let count = 0;
+            
+            for (let day = today.getDate(); day <= lastDay.getDate(); day++) {
+                const date = new Date(currentYear, currentMonth, day);
+                if (date.getDay() !== 0 && date.getDay() !== 6) {
+                    count++;
+                }
+            }
+            
+            return count;
+        }
+
+        function updateChart() {
+            const ctx = document.getElementById('sales-chart').getContext('2d');
+            
+            // Destruir gráfico anterior se existir
+            if (window.salesChart) {
+                window.salesChart.destroy();
+            }
+            
+            const monthSales = getCurrentMonthSales();
+            
+            // Agrupar vendas por dia
+            const dailySales = {};
+            const dailyReturns = {};
+            
+            monthSales.forEach(sale => {
+                const day = parseInt(sale.date.split('-')[2]);
+                
+                if (sale.type === 'sale') {
+                    if (!dailySales[day]) {
+                        dailySales[day] = 0;
+                    }
+                    dailySales[day] += sale.value;
+                } else if (sale.type === 'return') {
+                    if (!dailyReturns[day]) {
+                        dailyReturns[day] = 0;
+                    }
+                    dailyReturns[day] += sale.value;
+                }
+            });
+            
+            // Preparar dados para o gráfico
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            const labels = [];
+            const salesDataChart = [];
+            const returnsData = [];
+            const netData = [];
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                labels.push(day);
+                const sales = dailySales[day] || 0;
+                const returns = dailyReturns[day] || 0;
+                salesDataChart.push(sales);
+                returnsData.push(returns);
+                netData.push(sales - returns);
+            }
+            
+            // Criar gráfico
+            window.salesChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Vendas (R$)',
+                            data: salesDataChart,
+                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Devoluções (R$)',
+                            data: returnsData,
+                            backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Líquido (R$)',
+                            data: netData,
+                            type: 'line',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 2,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return 'R$ ' + formatCurrency(value);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': R$ ' + formatCurrency(context.parsed.y);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateMonthNotes() {
+            const notesKey = `${currentYear}-${currentMonth}`;
+            document.getElementById('month-notes').value = monthNotes[notesKey] || '';
+        }
+
+        function updateGoalInputs() {
+            const goalKey = `${currentYear}-${currentMonth}`;
+            const goalData = monthlyGoals[goalKey];
+            
+            if (goalData) {
+                document.getElementById('monthly-goal').value = goalData.goal;
+                document.getElementById('workdays').value = goalData.workdays;
+            } else {
+                document.getElementById('monthly-goal').value = '';
+                document.getElementById('workdays').value = 22;
+            }
+        }
+
+        function addSale() {
+            const date = document.getElementById('sale-date').value;
+            const code = document.getElementById('sale-code').value;
+            const value = parseFloat(document.getElementById('sale-value').value);
+            const type = document.getElementById('sale-type').value;
+            const description = document.getElementById('sale-description').value;
+            
+            if (!date || !code || isNaN(value) || value <= 0) {
+                alert('Por favor, preencha todos os campos obrigatórios com valores válidos.');
+                return;
+            }
+            
+            const sale = {
+                date: date,
+                code: code,
+                value: value,
+                type: type,
+                description: description
+            };
+            
+            if (!salesData[currentYear]) salesData[currentYear] = {};
+            if (!salesData[currentYear][currentMonth]) salesData[currentYear][currentMonth] = [];
+            
+            salesData[currentYear][currentMonth].push(sale);
+            salesData[currentYear][currentMonth].sort((a, b) => a.date.localeCompare(b.date));
+            
+            saveData();
+            updateDisplay();
+            
+            document.getElementById('sale-form').reset();
+            setCurrentDate();
+            document.getElementById('sale-type').value = 'sale';
+        }
+
+        function editSale(index) {
+            const monthSales = getCurrentMonthSales();
+            const sale = monthSales[index];
+            
+            // Preencher formulário com dados da venda
+            document.getElementById('sale-date').value = sale.date;
+            document.getElementById('sale-code').value = sale.code;
+            document.getElementById('sale-value').value = sale.value;
+            document.getElementById('sale-type').value = sale.type;
+            document.getElementById('sale-description').value = sale.description || '';
+            
+            // Remover a venda para adicionar novamente (simulando edição)
+            monthSales.splice(index, 1);
+            saveData();
+            updateDisplay();
+        }
+
+        function deleteSale(index) {
+            if (confirm('Tem certeza que deseja excluir este registro?')) {
+                const monthSales = getCurrentMonthSales();
+                monthSales.splice(index, 1);
+                saveData();
+                updateDisplay();
+            }
+        }
+
+        function saveMonthlyGoal() {
+            const goal = parseFloat(document.getElementById('monthly-goal').value);
+            const workdays = parseInt(document.getElementById('workdays').value);
+            
+            if (isNaN(goal) || goal < 0 || isNaN(workdays) || workdays < 1 || workdays > 31) {
+                alert('Por favor, insira valores válidos para a meta e dias úteis.');
+                return;
+            }
+            
+            const goalKey = `${currentYear}-${currentMonth}`;
+            monthlyGoals[goalKey] = {
+                goal: goal,
+                workdays: workdays
+            };
+            
+            saveData();
+            updateDisplay();
+        }
+
+        function saveMonthNotes() {
+            const notes = document.getElementById('month-notes').value;
+            const notesKey = `${currentYear}-${currentMonth}`;
+            monthNotes[notesKey] = notes;
+            
+            saveData();
+        }
+
+        function exportData() {
+            const dataToExport = {
+                salesData: salesData,
+                monthlyGoals: monthlyGoals,
+                monthNotes: monthNotes,
+                exportDate: new Date().toISOString()
+            };
+            
+            const dataStr = JSON.stringify(dataToExport, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `backup-vendas-${currentYear}-${currentMonth + 1}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function printReport() {
+            // Atualizar dados no relatório de impressão
+            const monthNames = [
+                'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+            ];
+            
+            document.getElementById('print-month').textContent = monthNames[currentMonth];
+            document.getElementById('print-year').textContent = currentYear;
+            
+            const monthSales = getCurrentMonthSales();
+            
+            // Calcular totais
+            const totalSold = monthSales
+                .filter(sale => sale.type === 'sale')
+                .reduce((sum, sale) => sum + sale.value, 0);
+                
+            const totalReturns = monthSales
+                .filter(sale => sale.type === 'return')
+                .reduce((sum, sale) => sum + sale.value, 0);
+                
+            const netAmount = totalSold - totalReturns;
+            
+            const goalKey = `${currentYear}-${currentMonth}`;
+            const monthlyGoal = monthlyGoals[goalKey] ? monthlyGoals[goalKey].goal : 0;
+            const remainingGoal = Math.max(0, monthlyGoal - netAmount);
+            const daysRemaining = calculateRemainingWorkdays();
+            const dailyGoal = daysRemaining > 0 ? remainingGoal / daysRemaining : 0;
+            const workdays = monthlyGoals[goalKey] ? monthlyGoals[goalKey].workdays : 22;
+            const averageNeeded = monthlyGoal > 0 ? monthlyGoal / workdays : 0;
+            
+            document.getElementById('print-total-sold').textContent = `R$ ${formatCurrency(totalSold)}`;
+            document.getElementById('print-total-returns').textContent = `R$ ${formatCurrency(totalReturns)}`;
+            document.getElementById('print-net-amount').textContent = `R$ ${formatCurrency(netAmount)}`;
+            document.getElementById('print-monthly-goal').textContent = `R$ ${formatCurrency(monthlyGoal)}`;
+            document.getElementById('print-difference').textContent = `R$ ${formatCurrency(remainingGoal)}`;
+            document.getElementById('print-daily-goal').textContent = `R$ ${formatCurrency(dailyGoal)}`;
+            document.getElementById('print-average-needed').textContent = `R$ ${formatCurrency(averageNeeded)}`;
+            
+            // Preencher tabela de impressão
+            const printTableBody = document.querySelector('#print-sales-table tbody');
+            printTableBody.innerHTML = '';
+            
+            monthSales.forEach(sale => {
+                const formattedDate = formatStoredDate(sale.date);
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="border px-4 py-2">${formattedDate}</td>
+                    <td class="border px-4 py-2">${sale.code}</td>
+                    <td class="border px-4 py-2 ${sale.type === 'return' ? 'text-red-600' : ''}">
+                        ${sale.type === 'return' ? '-' : ''}R$ ${formatCurrency(sale.value)}
+                    </td>
+                    <td class="border px-4 py-2">${sale.type === 'return' ? 'Devolução' : 'Venda'}</td>
+                    <td class="border px-4 py-2">${sale.description || ''}</td>
+                `;
+                printTableBody.appendChild(row);
+            });
+            
+            // Imprimir
+            window.print();
+        }
 
         // Funções auxiliares
         function getCurrentMonthSales() {
             if (!salesData[currentYear] || !salesData[currentYear][currentMonth]) {
                 return [];
-            }
-            // Garantir que é um array
-            if (!Array.isArray(salesData[currentYear][currentMonth])) {
-                salesData[currentYear][currentMonth] = [];
             }
             return salesData[currentYear][currentMonth];
         }
@@ -885,24 +1088,7 @@
             return value.toFixed(2).replace('.', ',');
         }
 
-        // Adicionar função para debug
-        function debugData() {
-            console.log('=== DEBUG DOS DADOS ===');
-            console.log('Dispositivo:', isMobile() ? 'Mobile' : 'Desktop');
-            console.log('salesData:', salesData);
-            console.log('monthlyGoals:', monthlyGoals);
-            console.log('monthNotes:', monthNotes);
-            console.log('localStorage salesData:', localStorage.getItem('salesData'));
-            console.log('localStorage monthlyGoals:', localStorage.getItem('monthlyGoals'));
-            console.log('localStorage monthNotes:', localStorage.getItem('monthNotes'));
-            console.log('=== FIM DEBUG ===');
-        }
-
-        // Expor função de debug globalmente para testes
-        window.debugData = debugData;
-
         console.log('Planilha de Vendas carregada com sucesso!');
-        console.log('Use debugData() no console para verificar os dados');
     </script>
 </body>
 </html>
