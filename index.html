@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planilha Digital de Vendas</title>
+    <title>Planilha Digital de Vendas - Compartilhada</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -27,12 +27,47 @@
         .return-row {
             background-color: #fff3cd !important;
         }
+        .sync-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+        .sync-saving {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .sync-saved {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .sync-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body class="bg-gray-100 p-4">
+    <!-- Status de sincronização -->
+    <div id="sync-status" class="sync-status" style="display: none;">
+        Sincronizando...
+    </div>
+
     <div class="container mx-auto bg-white rounded-lg shadow-md p-6">
         <header class="mb-8">
             <h1 class="text-3xl font-bold text-center text-blue-700">Planilha Digital de Vendas</h1>
+            <p class="text-center text-green-600 mt-2">✓ Dados compartilhados em tempo real</p>
+            
             <div class="flex justify-between items-center mt-4 no-print">
                 <div>
                     <label for="year-select" class="mr-2">Ano:</label>
@@ -41,9 +76,15 @@
                     </select>
                 </div>
                 <div class="flex space-x-2">
-                    <button id="backup-btn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">Exportar Dados</button>
-                    <button id="restore-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">Importar Dados</button>
-                    <button id="print-btn" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded">Imprimir Relatório</button>
+                    <button id="refresh-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded">
+                        🔄 Atualizar
+                    </button>
+                    <button id="backup-btn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
+                        💾 Exportar Backup
+                    </button>
+                    <button id="print-btn" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded">
+                        🖨️ Imprimir
+                    </button>
                 </div>
             </div>
         </header>
@@ -219,23 +260,13 @@
         </div>
     </div>
 
-    <!-- Modal para importação de dados -->
-    <div id="import-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div class="mt-3 text-center">
-                <h3 class="text-lg font-medium text-gray-900">Importar Dados</h3>
-                <div class="mt-2 px-7 py-3">
-                    <input type="file" id="import-file" class="w-full border rounded p-2" accept=".json">
-                </div>
-                <div class="flex justify-center mt-4">
-                    <button id="confirm-import" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mr-2">Importar</button>
-                    <button id="cancel-import" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">Cancelar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script>
+        // ========== CONFIGURAÇÃO JSONBIN.IO ==========
+        const JSONBIN_CONFIG = {
+            binId: '6908b6fd43b1c97be9960367',
+            apiKey: '$2a$10$AKM30q2AE/6WJhXqS2dft.8Luvw0h6GHLQWhtcUBQc12SCGK3oRra'
+        };
+
         // Variáveis globais
         let currentYear = new Date().getFullYear();
         let currentMonth = new Date().getMonth();
@@ -247,13 +278,136 @@
         document.addEventListener('DOMContentLoaded', function() {
             initializeApp();
             setupEventListeners();
-            loadData();
-            updateDisplay();
+            loadDataFromJsonBin();
         });
 
-        // Inicializar a aplicação
+        // ========== FUNÇÕES JSONBIN.IO ==========
+
+        // Mostrar status
+        function showSyncStatus(message, type = 'saving') {
+            const statusElement = document.getElementById('sync-status');
+            statusElement.textContent = message;
+            statusElement.className = `sync-status sync-${type}`;
+            statusElement.style.display = 'block';
+            
+            if (type === 'saved') {
+                setTimeout(() => {
+                    statusElement.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        // Carregar dados do JSONBin
+        async function loadDataFromJsonBin() {
+            showSyncStatus('Carregando dados...', 'saving');
+            
+            try {
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.binId}/latest`, {
+                    headers: {
+                        'X-Master-Key': JSONBIN_CONFIG.apiKey
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.record) {
+                    salesData = data.record.salesData || {};
+                    monthlyGoals = data.record.monthlyGoals || {};
+                    monthNotes = data.record.monthNotes || {};
+                    
+                    showSyncStatus('Dados carregados com sucesso!', 'saved');
+                } else {
+                    initializeEmptyData();
+                    showSyncStatus('Primeiro uso - dados iniciados!', 'saved');
+                }
+                
+                updateDisplay();
+            } catch (error) {
+                console.error('Erro ao carregar:', error);
+                showSyncStatus('Erro ao carregar. Usando cache local.', 'error');
+                loadFromLocalStorage();
+            }
+        }
+
+        // Salvar dados no JSONBin
+        async function saveDataToJsonBin() {
+            showSyncStatus('Salvando na nuvem...', 'saving');
+            
+            try {
+                const dataToSave = {
+                    salesData: salesData,
+                    monthlyGoals: monthlyGoals,
+                    monthNotes: monthNotes,
+                    lastUpdate: new Date().toISOString()
+                };
+                
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.binId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': JSONBIN_CONFIG.apiKey
+                    },
+                    body: JSON.stringify(dataToSave)
+                });
+                
+                if (response.ok) {
+                    showSyncStatus('Dados salvos na nuvem!', 'saved');
+                    saveToLocalStorage();
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Erro ao salvar');
+                }
+                
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                showSyncStatus('Erro ao salvar. Usando cache local.', 'error');
+                saveToLocalStorage();
+            }
+        }
+
+        // Backup local
+        function saveToLocalStorage() {
+            try {
+                localStorage.setItem('salesData_backup', JSON.stringify(salesData));
+                localStorage.setItem('monthlyGoals_backup', JSON.stringify(monthlyGoals));
+                localStorage.setItem('monthNotes_backup', JSON.stringify(monthNotes));
+                localStorage.setItem('lastBackup', new Date().toISOString());
+            } catch (e) {
+                console.warn('Erro ao salvar no localStorage:', e);
+            }
+        }
+
+        function loadFromLocalStorage() {
+            try {
+                const savedSales = localStorage.getItem('salesData_backup');
+                const savedGoals = localStorage.getItem('monthlyGoals_backup');
+                const savedNotes = localStorage.getItem('monthNotes_backup');
+                
+                if (savedSales) salesData = JSON.parse(savedSales);
+                if (savedGoals) monthlyGoals = JSON.parse(savedGoals);
+                if (savedNotes) monthNotes = JSON.parse(savedNotes);
+                
+                if (Object.keys(salesData).length === 0) {
+                    initializeEmptyData();
+                }
+                
+                updateDisplay();
+                showSyncStatus('Dados carregados do cache local', 'saved');
+            } catch (e) {
+                console.error('Erro ao carregar do cache:', e);
+                initializeEmptyData();
+                updateDisplay();
+            }
+        }
+
+        // ========== FUNÇÕES DA APLICAÇÃO ==========
+
         function initializeApp() {
-            // Preencher anos (5 anos para trás, 5 anos para frente)
+            // Preencher anos
             const yearSelect = document.getElementById('year-select');
             for (let i = currentYear - 5; i <= currentYear + 5; i++) {
                 const option = document.createElement('option');
@@ -263,40 +417,30 @@
                 yearSelect.appendChild(option);
             }
 
-            // Definir data atual no formulário - CORREÇÃO DEFINITIVA
             setCurrentDate();
-            
-            // Ativar o mês atual
             document.querySelector(`.month-tab[data-month="${currentMonth}"]`).classList.add('bg-blue-500', 'text-white');
         }
 
-        // Função corrigida para definir a data atual - SOLUÇÃO DEFINITIVA
         function setCurrentDate() {
             const now = new Date();
-            // Usar o método toLocaleDateString para obter a data no formato correto
             const year = now.getFullYear();
             const month = String(now.getMonth() + 1).padStart(2, '0');
             const day = String(now.getDate()).padStart(2, '0');
-            const formattedDate = `${year}-${month}-${day}`;
-            document.getElementById('sale-date').value = formattedDate;
+            document.getElementById('sale-date').value = `${year}-${month}-${day}`;
         }
 
-        // Configurar event listeners
         function setupEventListeners() {
             // Navegação por meses
             document.querySelectorAll('.month-tab').forEach(tab => {
                 tab.addEventListener('click', function() {
-                    // Remover classe ativa de todas as abas
                     document.querySelectorAll('.month-tab').forEach(t => {
                         t.classList.remove('bg-blue-500', 'text-white');
                         t.classList.add('bg-gray-200', 'hover:bg-gray-300');
                     });
                     
-                    // Adicionar classe ativa à aba clicada
                     this.classList.remove('bg-gray-200', 'hover:bg-gray-300');
                     this.classList.add('bg-blue-500', 'text-white');
                     
-                    // Atualizar mês atual
                     currentMonth = parseInt(this.getAttribute('data-month'));
                     updateDisplay();
                 });
@@ -321,40 +465,11 @@
             document.getElementById('save-notes-btn').addEventListener('click', saveMonthNotes);
 
             // Botões de ação
+            document.getElementById('refresh-btn').addEventListener('click', loadDataFromJsonBin);
             document.getElementById('backup-btn').addEventListener('click', exportData);
-            document.getElementById('restore-btn').addEventListener('click', showImportModal);
             document.getElementById('print-btn').addEventListener('click', printReport);
-
-            // Modal de importação
-            document.getElementById('confirm-import').addEventListener('click', importData);
-            document.getElementById('cancel-import').addEventListener('click', hideImportModal);
         }
 
-        // Carregar dados do localStorage
-        function loadData() {
-            // Carregar dados de vendas
-            const savedSales = localStorage.getItem('salesData');
-            if (savedSales) {
-                salesData = JSON.parse(savedSales);
-            } else {
-                // Inicializar estrutura vazia
-                initializeEmptyData();
-            }
-
-            // Carregar metas mensais
-            const savedGoals = localStorage.getItem('monthlyGoals');
-            if (savedGoals) {
-                monthlyGoals = JSON.parse(savedGoals);
-            }
-
-            // Carregar anotações
-            const savedNotes = localStorage.getItem('monthNotes');
-            if (savedNotes) {
-                monthNotes = JSON.parse(savedNotes);
-            }
-        }
-
-        // Inicializar estrutura de dados vazia
         function initializeEmptyData() {
             salesData = {};
             for (let year = currentYear - 5; year <= currentYear + 5; year++) {
@@ -365,14 +480,6 @@
             }
         }
 
-        // Salvar dados no localStorage
-        function saveData() {
-            localStorage.setItem('salesData', JSON.stringify(salesData));
-            localStorage.setItem('monthlyGoals', JSON.stringify(monthlyGoals));
-            localStorage.setItem('monthNotes', JSON.stringify(monthNotes));
-        }
-
-        // Atualizar a exibição
         function updateDisplay() {
             updateSalesTable();
             updateMonthlySummary();
@@ -391,7 +498,6 @@
             let currentDate = null;
 
             monthSales.forEach((sale, index) => {
-                // CORREÇÃO: Usar a data exatamente como foi salva, sem conversão para Date
                 const formattedDate = formatStoredDate(sale.date);
 
                 // Se é um novo dia, adicionar linha de separação
@@ -481,7 +587,7 @@
             // Obter meta do mês atual
             const goalKey = `${currentYear}-${currentMonth}`;
             const monthlyGoal = monthlyGoals[goalKey] ? monthlyGoals[goalKey].goal : 0;
-            const workdays = monthlyGoals[goalKey] ? monthlyGoals[goalKey].workdays : 22; // Padrão: 22 dias úteis
+            const workdays = monthlyGoals[goalKey] ? monthlyGoals[goalKey].workdays : 22;
             
             // Calcular valores
             const remainingGoal = Math.max(0, monthlyGoal - netAmount);
@@ -504,7 +610,6 @@
             
             for (let day = today.getDate(); day <= lastDay.getDate(); day++) {
                 const date = new Date(currentYear, currentMonth, day);
-                // Desconsiderar sábados (6) e domingos (0)
                 if (date.getDay() !== 0 && date.getDay() !== 6) {
                     count++;
                 }
@@ -529,7 +634,6 @@
             const dailyReturns = {};
             
             monthSales.forEach(sale => {
-                // CORREÇÃO: Extrair o dia diretamente da string de data
                 const day = parseInt(sale.date.split('-')[2]);
                 
                 if (sale.type === 'sale') {
@@ -548,7 +652,7 @@
             // Preparar dados para o gráfico
             const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
             const labels = [];
-            const salesData = [];
+            const salesDataChart = [];
             const returnsData = [];
             const netData = [];
             
@@ -556,7 +660,7 @@
                 labels.push(day);
                 const sales = dailySales[day] || 0;
                 const returns = dailyReturns[day] || 0;
-                salesData.push(sales);
+                salesDataChart.push(sales);
                 returnsData.push(returns);
                 netData.push(sales - returns);
             }
@@ -569,7 +673,7 @@
                     datasets: [
                         {
                             label: 'Vendas (R$)',
-                            data: salesData,
+                            data: salesDataChart,
                             backgroundColor: 'rgba(54, 162, 235, 0.5)',
                             borderColor: 'rgba(54, 162, 235, 1)',
                             borderWidth: 1
@@ -633,7 +737,7 @@
                 document.getElementById('workdays').value = goalData.workdays;
             } else {
                 document.getElementById('monthly-goal').value = '';
-                document.getElementById('workdays').value = 22; // Valor padrão
+                document.getElementById('workdays').value = 22;
             }
         }
 
@@ -645,39 +749,31 @@
             const type = document.getElementById('sale-type').value;
             const description = document.getElementById('sale-description').value;
             
-            // Validar dados
             if (!date || !code || isNaN(value) || value <= 0) {
                 alert('Por favor, preencha todos os campos obrigatórios com valores válidos.');
                 return;
             }
             
-            // CORREÇÃO: Salvar a data exatamente como foi inserida no campo
             const sale = {
-                date: date, // Salvar diretamente a string do campo de data
+                date: date,
                 code: code,
                 value: value,
                 type: type,
                 description: description
             };
             
-            // Garantir que a estrutura de dados existe
             if (!salesData[currentYear]) salesData[currentYear] = {};
             if (!salesData[currentYear][currentMonth]) salesData[currentYear][currentMonth] = [];
             
             salesData[currentYear][currentMonth].push(sale);
-            
-            // Ordenar vendas por data (agora usando a string diretamente)
             salesData[currentYear][currentMonth].sort((a, b) => a.date.localeCompare(b.date));
             
-            // Salvar dados e atualizar exibição
-            saveData();
+            saveDataToJsonBin();
             updateDisplay();
             
-            // Limpar formulário
             document.getElementById('sale-form').reset();
-            // CORREÇÃO: Usar a função corrigida para definir a data atual
             setCurrentDate();
-            document.getElementById('sale-type').value = 'sale'; // Reset para venda
+            document.getElementById('sale-type').value = 'sale';
         }
 
         // Editar venda
@@ -686,7 +782,7 @@
             const sale = monthSales[index];
             
             // Preencher formulário com dados da venda
-            document.getElementById('sale-date').value = sale.date; // Já está no formato correto
+            document.getElementById('sale-date').value = sale.date;
             document.getElementById('sale-code').value = sale.code;
             document.getElementById('sale-value').value = sale.value;
             document.getElementById('sale-type').value = sale.type;
@@ -694,7 +790,7 @@
             
             // Remover a venda para adicionar novamente (simulando edição)
             monthSales.splice(index, 1);
-            saveData();
+            saveDataToJsonBin();
             updateDisplay();
         }
 
@@ -703,7 +799,7 @@
             if (confirm('Tem certeza que deseja excluir este registro?')) {
                 const monthSales = getCurrentMonthSales();
                 monthSales.splice(index, 1);
-                saveData();
+                saveDataToJsonBin();
                 updateDisplay();
             }
         }
@@ -724,7 +820,7 @@
                 workdays: workdays
             };
             
-            saveData();
+            saveDataToJsonBin();
             updateDisplay();
         }
 
@@ -734,8 +830,7 @@
             const notesKey = `${currentYear}-${currentMonth}`;
             monthNotes[notesKey] = notes;
             
-            saveData();
-            alert('Anotações salvas com sucesso!');
+            saveDataToJsonBin();
         }
 
         // Exportar dados
@@ -758,56 +853,6 @@
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
-        }
-
-        // Mostrar modal de importação
-        function showImportModal() {
-            document.getElementById('import-modal').classList.remove('hidden');
-        }
-
-        // Ocultar modal de importação
-        function hideImportModal() {
-            document.getElementById('import-modal').classList.add('hidden');
-            document.getElementById('import-file').value = '';
-        }
-
-        // Importar dados
-        function importData() {
-            const fileInput = document.getElementById('import-file');
-            const file = fileInput.files[0];
-            
-            if (!file) {
-                alert('Por favor, selecione um arquivo para importar.');
-                return;
-            }
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const importedData = JSON.parse(e.target.result);
-                    
-                    // Validar estrutura dos dados
-                    if (!importedData.salesData || !importedData.monthlyGoals || !importedData.monthNotes) {
-                        throw new Error('Arquivo inválido: estrutura de dados incorreta.');
-                    }
-                    
-                    // Confirmar substituição
-                    if (confirm('Isso substituirá todos os dados atuais. Continuar?')) {
-                        salesData = importedData.salesData;
-                        monthlyGoals = importedData.monthlyGoals;
-                        monthNotes = importedData.monthNotes;
-                        
-                        saveData();
-                        updateDisplay();
-                        hideImportModal();
-                        alert('Dados importados com sucesso!');
-                    }
-                } catch (error) {
-                    alert('Erro ao importar dados: ' + error.message);
-                }
-            };
-            
-            reader.readAsText(file);
         }
 
         // Imprimir relatório
@@ -879,9 +924,7 @@
             return salesData[currentYear][currentMonth];
         }
 
-        // CORREÇÃO: Nova função para formatar a data armazenada
         function formatStoredDate(dateString) {
-            // A data já está no formato YYYY-MM-DD, converter para DD/MM/YYYY
             const parts = dateString.split('-');
             return `${parts[2]}/${parts[1]}/${parts[0]}`;
         }
