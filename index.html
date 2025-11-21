@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        /* Estilos existentes mantidos */
         .print-only { display: none; }
         @media print {
             .no-print { display: none !important; }
@@ -131,6 +132,12 @@
             align-items: center;
             flex-direction: column;
             color: white;
+        }
+        /* Estilo para o gráfico donut */
+        .chart-container {
+            position: relative;
+            height: 250px;
+            width: 100%;
         }
     </style>
 </head>
@@ -276,19 +283,19 @@
                     <p class="text-xs text-gray-500 mt-1 hidden md:block">por dia para bater a meta</p>
                 </div>
             </div>
-            <!-- Barra de progresso da meta -->
-            <div class="mt-4 bg-white p-3 rounded shadow">
-                <div class="flex justify-between text-sm mb-1">
-                    <span>Progresso da Meta</span>
-                    <span id="progress-percentage">0%</span>
-                </div>
-                <div class="w-full bg-gray-200 rounded-full h-2.5">
-                    <div id="progress-bar" class="bg-green-600 h-2.5 rounded-full" style="width: 0%"></div>
+        </div>
+
+        <!-- Gráfico de progresso da meta mensal (Donut) -->
+        <div class="mb-4 md:mb-6 no-print">
+            <div class="bg-white p-4 rounded shadow">
+                <h2 class="text-lg md:text-xl font-semibold mb-4 text-center">Progresso da Meta Mensal</h2>
+                <div class="chart-container">
+                    <canvas id="monthly-progress-chart"></canvas>
                 </div>
             </div>
         </div>
 
-        <!-- Gráfico de progresso -->
+        <!-- Gráfico de vendas diárias -->
         <div class="mb-4 md:mb-6 no-print">
             <canvas id="sales-chart" height="80"></canvas>
         </div>
@@ -1128,9 +1135,6 @@
             document.getElementById('daily-goal').textContent = `R$ ${formatCurrency(dailyGoal)}`;
             document.getElementById('average-needed').textContent = `R$ ${formatCurrency(averageNeeded)}`;
             
-            document.getElementById('progress-bar').style.width = `${progressPercentage}%`;
-            document.getElementById('progress-percentage').textContent = `${progressPercentage.toFixed(1)}%`;
-            
             const averageElement = document.getElementById('average-needed');
             if (currentAverage >= averageNeeded) {
                 averageElement.classList.remove('text-indigo-600', 'text-red-600');
@@ -1139,17 +1143,9 @@
                 averageElement.classList.remove('text-indigo-600', 'text-green-600');
                 averageElement.classList.add('text-red-600');
             }
-            
-            const progressBar = document.getElementById('progress-bar');
-            if (progressPercentage >= 100) {
-                progressBar.className = 'bg-green-600 h-2.5 rounded-full';
-            } else if (progressPercentage >= 70) {
-                progressBar.className = 'bg-yellow-500 h-2.5 rounded-full';
-            } else {
-                progressBar.className = 'bg-green-600 h-2.5 rounded-full';
-            }
         }
 
+        // ========== FUNÇÕES DE GRÁFICOS ==========
         function updateChart() {
             const ctx = document.getElementById('sales-chart').getContext('2d');
             
@@ -1244,6 +1240,91 @@
                         }
                     }
                 }
+            });
+        }
+
+        function updateMonthlyProgressChart() {
+            const ctx = document.getElementById('monthly-progress-chart').getContext('2d');
+            
+            if (window.monthlyProgressChart) {
+                window.monthlyProgressChart.destroy();
+            }
+            
+            const monthSales = getCurrentMonthSales();
+            
+            const totalSold = monthSales
+                .filter(sale => sale.type === 'sale')
+                .reduce((sum, sale) => sum + sale.value, 0);
+                
+            const totalReturns = monthSales
+                .filter(sale => sale.type === 'return')
+                .reduce((sum, sale) => sum + sale.value, 0);
+                
+            const netAmount = totalSold - totalReturns;
+            
+            const goalKey = `${currentYear}-${currentMonth}`;
+            const monthlyGoal = monthlyGoals[goalKey] ? monthlyGoals[goalKey].goal : 0;
+            
+            const progressPercentage = monthlyGoal > 0 ? Math.min(100, (netAmount / monthlyGoal) * 100) : 0;
+            const remainingPercentage = Math.max(0, 100 - progressPercentage);
+            
+            window.monthlyProgressChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Realizado', 'Restante'],
+                    datasets: [{
+                        data: [progressPercentage, remainingPercentage],
+                        backgroundColor: [
+                            progressPercentage >= 100 ? 'rgba(75, 192, 192, 0.8)' : 'rgba(54, 162, 235, 0.8)',
+                            'rgba(220, 220, 220, 0.5)'
+                        ],
+                        borderColor: [
+                            progressPercentage >= 100 ? 'rgba(75, 192, 192, 1)' : 'rgba(54, 162, 235, 1)',
+                            'rgba(220, 220, 220, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed;
+                                    return `${label}: ${value.toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [{
+                    id: 'centerText',
+                    beforeDraw: function(chart) {
+                        const width = chart.width;
+                        const height = chart.height;
+                        const ctx = chart.ctx;
+                        ctx.restore();
+                        
+                        const fontSize = (height / 150).toFixed(2);
+                        ctx.font = `bold ${fontSize}em sans-serif`;
+                        ctx.textBaseline = 'middle';
+                        
+                        // Apenas o percentual no centro do gráfico
+                        const text = `${progressPercentage.toFixed(1)}%`;
+                        const textX = Math.round((width - ctx.measureText(text).width) / 2);
+                        const textY = height / 2;
+                        
+                        ctx.fillText(text, textX, textY);
+                        ctx.save();
+                    }
+                }]
             });
         }
 
@@ -1620,6 +1701,7 @@
             updateSalesTable();
             updateMonthlySummary();
             updateChart();
+            updateMonthlyProgressChart();
             updateMonthNotes();
             updateGoalInputs();
         }
