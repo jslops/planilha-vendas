@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planilha Digital de Vendas</title>
+    <title>Planilha Digital de Vendas - Otimizada</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -102,10 +102,48 @@
         .table-container::-webkit-scrollbar-thumb:hover {
             background: #a8a8a8;
         }
+        /* Novos estilos para melhorias */
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: white;
+        }
     </style>
 </head>
 <body class="bg-gray-100 p-2 md:p-4">
-    <!-- Status de sincronização -->
+    <!-- Overlay de carregamento -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="bg-white p-6 rounded-lg shadow-lg text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p id="loading-text" class="text-gray-800">Processando...</p>
+        </div>
+    </div>
+
+    <!-- Status de sincronização melhorado -->
     <div id="sync-status" class="sync-status" style="display: none;">
         Salvando...
     </div>
@@ -115,7 +153,12 @@
             <div class="flex flex-col md:flex-row md:justify-between md:items-center space-y-2 md:space-y-0">
                 <div class="text-center md:text-left">
                     <h1 class="text-xl md:text-3xl font-bold text-blue-700">Planilha de Vendas</h1>
-                    <p id="sync-indicator" class="text-green-600 text-sm md:text-base mt-1 md:mt-2">✓ Dados sincronizados</p>
+                    <div class="flex items-center mt-1 md:mt-2">
+                        <p id="sync-indicator" class="text-green-600 text-sm md:text-base">✓ Dados sincronizados</p>
+                        <button id="sync-now-btn" class="ml-2 text-blue-500 hover:text-blue-700 text-sm no-print" title="Sincronizar agora">
+                            🔄
+                        </button>
+                    </div>
                 </div>
                 <div class="flex flex-wrap justify-center gap-2 mobile-btn-sm">
                     <button id="import-btn" class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 md:px-4 md:py-2 rounded no-print text-sm">
@@ -143,6 +186,9 @@
                     </button>
                     <button id="clear-data-btn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 md:px-4 md:py-2 rounded text-sm">
                         🗑️ Limpar Dados
+                    </button>
+                    <button id="stats-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 md:px-4 md:py-2 rounded text-sm no-print">
+                        📊 Estatísticas
                     </button>
                 </div>
             </div>
@@ -230,6 +276,16 @@
                     <p class="text-xs text-gray-500 mt-1 hidden md:block">por dia para bater a meta</p>
                 </div>
             </div>
+            <!-- Barra de progresso da meta -->
+            <div class="mt-4 bg-white p-3 rounded shadow">
+                <div class="flex justify-between text-sm mb-1">
+                    <span>Progresso da Meta</span>
+                    <span id="progress-percentage">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="progress-bar" class="bg-green-600 h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
         </div>
 
         <!-- Gráfico de progresso -->
@@ -269,12 +325,26 @@
         <!-- Tabela de vendas com scroll responsivo -->
         <div class="mb-4 md:mb-6">
             <h2 class="text-lg md:text-xl font-semibold mb-2">Vendas do Mês</h2>
+            <div class="flex justify-between items-center mb-2 no-print">
+                <div class="text-sm text-gray-600">
+                    <span id="sales-count">0</span> registros encontrados
+                </div>
+                <div class="flex space-x-2">
+                    <button id="filter-all" class="px-3 py-1 bg-blue-500 text-white rounded text-xs active">Todos</button>
+                    <button id="filter-sales" class="px-3 py-1 bg-gray-200 rounded text-xs">Vendas</button>
+                    <button id="filter-returns" class="px-3 py-1 bg-gray-200 rounded text-xs">Devoluções</button>
+                </div>
+            </div>
             <div class="table-container border rounded">
                 <table id="sales-table" class="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead class="bg-gray-50">
+                    <thead class="bg-gray-50 sticky top-0">
                         <tr>
-                            <th class="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
-                            <th class="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
+                            <th class="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" data-sort="date">
+                                Data ↕
+                            </th>
+                            <th class="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" data-sort="value">
+                                Valor ↕
+                            </th>
                             <th class="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
                             <th class="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider mobile-hidden">Descrição</th>
                             <th class="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider no-print">Ações</th>
@@ -363,6 +433,35 @@
         </div>
     </div>
 
+    <!-- Modal de Estatísticas -->
+    <div id="stats-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-3/4 shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Estatísticas Detalhadas</h3>
+                <button id="close-stats" class="text-gray-500 hover:text-gray-700">
+                    ✕
+                </button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-gray-50 p-4 rounded">
+                    <h4 class="font-semibold mb-2">Resumo Anual</h4>
+                    <div id="annual-stats" class="space-y-2 text-sm">
+                        <!-- Conteúdo preenchido via JavaScript -->
+                    </div>
+                </div>
+                <div class="bg-gray-50 p-4 rounded">
+                    <h4 class="font-semibold mb-2">Melhores Meses</h4>
+                    <div id="top-months" class="space-y-2 text-sm">
+                        <!-- Conteúdo preenchido via JavaScript -->
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4">
+                <canvas id="annual-chart" height="150"></canvas>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ========== CONFIGURAÇÃO JSONBIN PRÉ-DEFINIDA ==========
         const JSONBIN_CONFIG = {
@@ -380,17 +479,19 @@
         let lastSyncTime = null;
         let syncInProgress = false;
         let lastLocalUpdate = Date.now();
+        let currentFilter = 'all';
+        let currentSort = { field: 'date', direction: 'asc' };
 
         // ========== INICIALIZAÇÃO ==========
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('Iniciando planilha de vendas com JSONBin automático...');
+            console.log('Iniciando planilha de vendas otimizada...');
             initializeApp();
             setupEventListeners();
             loadLocalData();
             attemptAutoSync();
         });
 
-        // ========== SISTEMA DE SINCRONIZAÇÃO CORRIGIDO ==========
+        // ========== SISTEMA DE SINCRONIZAÇÃO OTIMIZADO ==========
         async function syncWithJSONBin() {
             if (syncInProgress) {
                 console.log('Sincronização já em andamento...');
@@ -455,7 +556,7 @@
             }
         }
 
-        // ========== NOVA FUNÇÃO: VERIFICAR SE DADOS LOCAIS SÃO MAIS RECENTES ==========
+        // ========== FUNÇÕES DE SINCRONIZAÇÃO ==========
         function isLocalDataNewer(remoteLastModified) {
             if (!remoteLastModified) return true;
             if (!lastLocalUpdate) return false;
@@ -464,21 +565,17 @@
             return lastLocalUpdate > remoteTime;
         }
 
-        // ========== MESCLAGEM DE DADOS CORRIGIDA ==========
         function mergeData(remoteData) {
             if (!remoteData) return false;
 
             console.log('Iniciando mesclagem inteligente de dados...');
 
             try {
-                // Para vendas: usar abordagem baseada em timestamp
-                // Se os dados remotos são mais recentes, substituir completamente
                 if (remoteData.salesData && isNewerData(remoteData.lastModified)) {
                     console.log('Substituindo dados de vendas por versão mais recente');
                     salesData = remoteData.salesData;
                 }
 
-                // Para metas: mesclar inteligentemente
                 if (remoteData.monthlyGoals) {
                     for (const key in remoteData.monthlyGoals) {
                         const remoteGoal = remoteData.monthlyGoals[key];
@@ -490,7 +587,6 @@
                     }
                 }
 
-                // Para anotações: mesclar inteligentemente
                 if (remoteData.monthNotes) {
                     for (const key in remoteData.monthNotes) {
                         const remoteNote = remoteData.monthNotes[key];
@@ -518,7 +614,6 @@
             return remoteTime > lastSyncTime;
         }
 
-        // ========== FUNÇÕES DE API CORRIGIDAS ==========
         async function fetchRemoteData() {
             try {
                 const response = await fetch(`${JSONBIN_CONFIG.baseUrl}/${JSONBIN_CONFIG.binId}/latest`, {
@@ -579,38 +674,46 @@
             }
         }
 
+        // ========== FUNÇÕES DE INTERFACE ==========
+        function showLoading(message = 'Processando...') {
+            document.getElementById('loading-text').textContent = message;
+            document.getElementById('loading-overlay').style.display = 'flex';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-overlay').style.display = 'none';
+        }
+
         function updateSyncIndicator() {
             const indicator = document.getElementById('sync-indicator');
             if (lastSyncTime) {
-                const timeDiff = Math.floor((Date.now() - lastSyncTime) / 1000 / 60); // minutos
+                const timeDiff = Math.floor((Date.now() - lastSyncTime) / 1000 / 60);
                 if (timeDiff < 2) {
                     indicator.innerHTML = '✓ Dados sincronizados';
-                    indicator.className = 'text-green-600 text-sm md:text-base mt-1 md:mt-2';
+                    indicator.className = 'text-green-600 text-sm md:text-base';
                 } else {
                     indicator.innerHTML = '🔄 Sincronizando...';
-                    indicator.className = 'text-blue-600 text-sm md:text-base mt-1 md:mt-2';
+                    indicator.className = 'text-blue-600 text-sm md:text-base';
                 }
             } else {
                 indicator.innerHTML = '🔄 Sincronizando...';
-                indicator.className = 'text-blue-600 text-sm md:text-base mt-1 md:mt-2';
+                indicator.className = 'text-blue-600 text-sm md:text-base';
             }
         }
 
         function attemptAutoSync() {
-            // Sincronizar a cada 30 segundos automaticamente
             setInterval(() => {
                 if (!syncInProgress) {
                     syncWithJSONBin();
                 }
             }, 30000);
             
-            // Sincronizar imediatamente ao carregar
             setTimeout(() => {
                 syncWithJSONBin();
             }, 1500);
         }
 
-        // ========== FUNÇÕES DE DADOS LOCAIS ATUALIZADAS ==========
+        // ========== FUNÇÕES DE DADOS LOCAIS ==========
         function loadLocalData() {
             console.log('Carregando dados do localStorage...');
             
@@ -627,7 +730,6 @@
                 if (savedLastSync) lastSyncTime = parseInt(savedLastSync);
                 if (savedLastUpdate) lastLocalUpdate = parseInt(savedLastUpdate);
                 
-                // Inicializar estrutura se estiver vazia
                 if (!salesData || Object.keys(salesData).length === 0) {
                     initializeEmptyData();
                 }
@@ -659,9 +761,8 @@
 
         // ========== FUNÇÕES PRINCIPAIS ==========
         function initializeApp() {
-            console.log('Inicializando aplicação...');
+            console.log('Inicializando aplicação otimizada...');
             
-            // Preencher anos
             const yearSelect = document.getElementById('year-select');
             yearSelect.innerHTML = '';
             for (let i = currentYear - 5; i <= currentYear + 5; i++) {
@@ -677,7 +778,7 @@
         }
 
         function setupEventListeners() {
-            console.log('Configurando event listeners...');
+            console.log('Configurando event listeners otimizados...');
             
             // Navegação por meses
             document.querySelectorAll('.month-tab').forEach(tab => {
@@ -688,32 +789,25 @@
                 });
             });
 
-            // Navegação mobile
             document.getElementById('mobile-month-select').addEventListener('change', function() {
                 currentMonth = parseInt(this.value);
                 updateMonthTabs();
                 updateDisplay();
             });
 
-            // Alterar ano
             document.getElementById('year-select').addEventListener('change', function() {
                 currentYear = parseInt(this.value);
                 updateDisplay();
             });
 
-            // Formulário de venda
             document.getElementById('sale-form').addEventListener('submit', function(e) {
                 e.preventDefault();
                 addSale();
             });
 
-            // Salvar meta
             document.getElementById('save-goal-btn').addEventListener('click', saveMonthlyGoal);
-
-            // Salvar anotações
             document.getElementById('save-notes-btn').addEventListener('click', saveMonthNotes);
 
-            // Botões de ação
             document.getElementById('refresh-btn').addEventListener('click', function() {
                 loadLocalData();
                 updateDisplay();
@@ -724,17 +818,39 @@
             document.getElementById('backup-btn').addEventListener('click', exportData);
             document.getElementById('print-btn').addEventListener('click', printReport);
             
-            // Botão para limpar dados
             document.getElementById('clear-data-btn').addEventListener('click', function() {
                 if (confirm('⚠️ TEM CERTEZA que deseja limpar TODOS os dados? Esta ação não pode ser desfeita!')) {
                     clearAllData();
                 }
             });
 
-            // Importar dados
             document.getElementById('import-btn').addEventListener('click', showImportModal);
             document.getElementById('confirm-import').addEventListener('click', importData);
             document.getElementById('cancel-import').addEventListener('click', hideImportModal);
+
+            document.getElementById('sync-now-btn').addEventListener('click', function() {
+                syncWithJSONBin();
+            });
+
+            document.getElementById('filter-all').addEventListener('click', function() {
+                setFilter('all');
+            });
+            document.getElementById('filter-sales').addEventListener('click', function() {
+                setFilter('sales');
+            });
+            document.getElementById('filter-returns').addEventListener('click', function() {
+                setFilter('returns');
+            });
+
+            document.querySelectorAll('th[data-sort]').forEach(th => {
+                th.addEventListener('click', function() {
+                    const field = this.getAttribute('data-sort');
+                    sortSales(field);
+                });
+            });
+
+            document.getElementById('stats-btn').addEventListener('click', showStatsModal);
+            document.getElementById('close-stats').addEventListener('click', hideStatsModal);
         }
 
         function initializeEmptyData() {
@@ -748,26 +864,44 @@
             console.log('Estrutura de dados vazia inicializada');
         }
 
-        // ========== FUNÇÃO PARA LIMPAR DADOS ==========
-        function clearAllData() {
-            salesData = {};
-            monthlyGoals = {};
-            monthNotes = {};
+        // ========== FUNÇÕES DE FILTRO E ORDENAÇÃO ==========
+        function setFilter(filter) {
+            currentFilter = filter;
             
-            initializeEmptyData();
-            lastLocalUpdate = Date.now();
-            saveLocalData();
-            updateDisplay();
+            document.getElementById('filter-all').classList.remove('active', 'bg-blue-500', 'text-white');
+            document.getElementById('filter-sales').classList.remove('active', 'bg-blue-500', 'text-white');
+            document.getElementById('filter-returns').classList.remove('active', 'bg-blue-500', 'text-white');
             
-            // Sincronizar dados vazios com nuvem
-            setTimeout(() => {
-                syncWithJSONBin();
-            }, 500);
+            document.getElementById('filter-all').classList.add('bg-gray-200');
+            document.getElementById('filter-sales').classList.add('bg-gray-200');
+            document.getElementById('filter-returns').classList.add('bg-gray-200');
             
-            showSyncStatus('Todos os dados foram limpos!', 'saved');
+            document.getElementById(`filter-${filter}`).classList.remove('bg-gray-200');
+            document.getElementById(`filter-${filter}`).classList.add('bg-blue-500', 'text-white', 'active');
+            
+            updateSalesTable();
         }
 
-        // ========== FUNÇÕES DE VENDAS ATUALIZADAS ==========
+        function sortSales(field) {
+            if (currentSort.field === field) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.field = field;
+                currentSort.direction = 'asc';
+            }
+            
+            document.querySelectorAll('th[data-sort]').forEach(th => {
+                th.innerHTML = th.getAttribute('data-sort') === 'date' ? 'Data ↕' : 'Valor ↕';
+            });
+            
+            const currentTh = document.querySelector(`th[data-sort="${field}"]`);
+            currentTh.innerHTML = field === 'date' ? 'Data ' + (currentSort.direction === 'asc' ? '↑' : '↓') : 
+                                              'Valor ' + (currentSort.direction === 'asc' ? '↑' : '↓');
+            
+            updateSalesTable();
+        }
+
+        // ========== FUNÇÕES DE VENDAS ==========
         function addSale() {
             const date = document.getElementById('sale-date').value;
             const value = parseFloat(document.getElementById('sale-value').value);
@@ -779,11 +913,19 @@
                 return;
             }
             
+            const saleDate = new Date(date);
+            const current = new Date();
+            if (saleDate > current) {
+                alert('Não é possível adicionar vendas com data futura.');
+                return;
+            }
+            
             const sale = {
                 date: date,
                 value: value,
                 type: type,
-                description: description
+                description: description,
+                timestamp: Date.now()
             };
             
             if (!salesData[currentYear]) salesData[currentYear] = {};
@@ -792,7 +934,6 @@
             salesData[currentYear][currentMonth].push(sale);
             salesData[currentYear][currentMonth].sort((a, b) => a.date.localeCompare(b.date));
             
-            // ATUALIZAR TIMESTAMP LOCAL
             lastLocalUpdate = Date.now();
             saveLocalData();
             updateDisplay();
@@ -801,7 +942,6 @@
             setCurrentDate();
             document.getElementById('sale-type').value = 'sale';
             
-            // Sincronizar com nuvem automaticamente
             setTimeout(() => {
                 syncWithJSONBin();
             }, 500);
@@ -812,12 +952,10 @@
                 const monthSales = getCurrentMonthSales();
                 monthSales.splice(index, 1);
                 
-                // ATUALIZAR TIMESTAMP LOCAL
                 lastLocalUpdate = Date.now();
                 saveLocalData();
                 updateDisplay();
                 
-                // Sincronizar IMEDIATAMENTE para garantir que a exclusão seja refletida
                 setTimeout(() => {
                     syncWithJSONBin().then(success => {
                         if (success) {
@@ -832,256 +970,117 @@
             const monthSales = getCurrentMonthSales();
             const sale = monthSales[index];
             
-            // Preencher formulário com dados da venda
             document.getElementById('sale-date').value = sale.date;
             document.getElementById('sale-value').value = sale.value;
             document.getElementById('sale-type').value = sale.type;
             document.getElementById('sale-description').value = sale.description || '';
             
-            // Remover a venda para adicionar novamente (simulando edição)
             monthSales.splice(index, 1);
             
-            // ATUALIZAR TIMESTAMP LOCAL
             lastLocalUpdate = Date.now();
             saveLocalData();
             updateDisplay();
             
-            // Sincronizar com nuvem
             setTimeout(() => {
                 syncWithJSONBin();
             }, 500);
         }
 
-        function saveMonthlyGoal() {
-            const goal = parseFloat(document.getElementById('monthly-goal').value);
-            const workdays = parseInt(document.getElementById('workdays').value);
-            
-            if (isNaN(goal) || goal < 0 || isNaN(workdays) || workdays < 1 || workdays > 31) {
-                alert('Por favor, insira valores válidos para a meta e dias úteis.');
-                return;
-            }
-            
-            const goalKey = `${currentYear}-${currentMonth}`;
-            monthlyGoals[goalKey] = {
-                goal: goal,
-                workdays: workdays
-            };
-            
-            // ATUALIZAR TIMESTAMP LOCAL
-            lastLocalUpdate = Date.now();
-            saveLocalData();
-            updateDisplay();
-            
-            // Sincronizar com nuvem
-            setTimeout(() => {
-                syncWithJSONBin();
-            }, 500);
-        }
-
-        function saveMonthNotes() {
-            const notes = document.getElementById('month-notes').value;
-            const notesKey = `${currentYear}-${currentMonth}`;
-            monthNotes[notesKey] = notes;
-            
-            // ATUALIZAR TIMESTAMP LOCAL
-            lastLocalUpdate = Date.now();
-            saveLocalData();
-            
-            // Sincronizar com nuvem
-            setTimeout(() => {
-                syncWithJSONBin();
-            }, 500);
-        }
-
-        // ========== FUNÇÃO DE IMPORTAR DADOS ==========
-        function showImportModal() {
-            document.getElementById('import-modal').classList.remove('hidden');
-        }
-
-        function hideImportModal() {
-            document.getElementById('import-modal').classList.add('hidden');
-            document.getElementById('import-file').value = '';
-            document.getElementById('import-message').textContent = '';
-        }
-
-        function importData() {
-            const fileInput = document.getElementById('import-file');
-            const file = fileInput.files[0];
-            
-            if (!file) {
-                showImportMessage('Selecione um arquivo para importar.', 'error');
-                return;
-            }
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const importedData = JSON.parse(e.target.result);
-                    
-                    // Validar estrutura do arquivo
-                    if (!importedData.salesData || !importedData.monthlyGoals || !importedData.monthNotes) {
-                        throw new Error('Arquivo inválido: estrutura de dados incorreta.');
-                    }
-                    
-                    if (confirm('⚠️ ATENÇÃO: Isso substituirá todos os seus dados atuais. Deseja continuar?')) {
-                        // Substituir dados atuais
-                        salesData = importedData.salesData;
-                        monthlyGoals = importedData.monthlyGoals;
-                        monthNotes = importedData.monthNotes;
-                        
-                        // ATUALIZAR TIMESTAMP LOCAL
-                        lastLocalUpdate = Date.now();
-                        
-                        // Salvar e sincronizar dados
-                        saveLocalData();
-                        showImportMessage('Dados importados com sucesso!', 'success');
-                        updateDisplay();
-                        setTimeout(() => {
-                            syncWithJSONBin();
-                            hideImportModal();
-                        }, 2000);
-                    }
-                } catch (error) {
-                    console.error('Erro ao importar:', error);
-                    showImportMessage('Erro: ' + error.message, 'error');
-                }
-            };
-            
-            reader.onerror = function() {
-                showImportMessage('Erro ao ler o arquivo.', 'error');
-            };
-            
-            reader.readAsText(file);
-        }
-
-        function showImportMessage(message, type) {
-            const element = document.getElementById('import-message');
-            element.textContent = message;
-            element.className = `mt-2 text-sm ${type === 'success' ? 'text-green-600' : 'text-red-600'}`;
-        }
-
-        // ========== FUNÇÕES DE INTERFACE ==========
-        function showSyncStatus(message, type = 'saving') {
-            const statusElement = document.getElementById('sync-status');
-            statusElement.textContent = message;
-            statusElement.className = `sync-status sync-${type}`;
-            statusElement.style.display = 'block';
-            
-            if (type === 'saved') {
-                setTimeout(() => {
-                    statusElement.style.display = 'none';
-                }, 2000);
-            }
-        }
-
-        function setCurrentDate() {
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            document.getElementById('sale-date').value = `${year}-${month}-${day}`;
-        }
-
-        function updateMonthTabs() {
-            // Atualizar seleção mobile
-            document.getElementById('mobile-month-select').value = currentMonth;
-            
-            // Atualizar abas desktop
-            document.querySelectorAll('.month-tab').forEach(tab => {
-                tab.classList.remove('bg-blue-500', 'text-white');
-                tab.classList.add('bg-gray-200', 'hover:bg-gray-300');
-            });
-            
-            const activeTab = document.querySelector(`.month-tab[data-month="${currentMonth}"]`);
-            if (activeTab) {
-                activeTab.classList.remove('bg-gray-200', 'hover:bg-gray-300');
-                activeTab.classList.add('bg-blue-500', 'text-white');
-            }
-        }
-
-        function updateDisplay() {
-            console.log('Atualizando display... Mês:', currentMonth + 1, 'Ano:', currentYear);
-            updateSalesTable();
-            updateMonthlySummary();
-            updateChart();
-            updateMonthNotes();
-            updateGoalInputs();
-        }
-
-        // ========== FUNÇÕES DA PLANILHA (ATUALIZADAS) ==========
+        // ========== FUNÇÕES DE EXIBIÇÃO ==========
         function updateSalesTable() {
             const tbody = document.getElementById('sales-table-body');
             tbody.innerHTML = '';
 
-            const monthSales = getCurrentMonthSales();
+            let monthSales = getCurrentMonthSales();
+            
+            if (currentFilter === 'sales') {
+                monthSales = monthSales.filter(sale => sale.type === 'sale');
+            } else if (currentFilter === 'returns') {
+                monthSales = monthSales.filter(sale => sale.type === 'return');
+            }
+            
+            monthSales.sort((a, b) => {
+                let aValue, bValue;
+                
+                if (currentSort.field === 'date') {
+                    aValue = a.date;
+                    bValue = b.date;
+                } else {
+                    aValue = a.value;
+                    bValue = b.value;
+                }
+                
+                if (currentSort.direction === 'asc') {
+                    return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+                } else {
+                    return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+                }
+            });
+
             let dailyTotal = 0;
             let currentDate = null;
 
-            console.log('Vendas do mês atual:', monthSales.length);
-
             if (monthSales.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-gray-500">Nenhuma venda cadastrada este mês</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-gray-500">Nenhuma venda encontrada</td></tr>';
                 document.getElementById('daily-total').textContent = 'R$ 0,00';
+                document.getElementById('sales-count').textContent = '0';
                 return;
             }
 
             monthSales.forEach((sale, index) => {
                 const formattedDate = formatStoredDate(sale.date);
 
-                // Se é um novo dia, adicionar linha de separação
                 if (currentDate !== formattedDate) {
                     if (currentDate !== null) {
-                        // Adicionar total do dia anterior
                         addDailyTotalRow(tbody, currentDate, dailyTotal);
                         dailyTotal = 0;
                     }
                     currentDate = formattedDate;
                 }
 
-                // Determinar classe CSS baseada no tipo
                 const rowClass = sale.type === 'return' ? 'return-row' : '';
-                
-                // Adicionar linha da venda
                 const row = document.createElement('tr');
                 if (rowClass) row.classList.add(rowClass);
+                row.classList.add('fade-in');
                 
                 row.innerHTML = `
                     <td class="px-2 md:px-4 py-2">${formattedDate}</td>
                     <td class="px-2 md:px-4 py-2 ${sale.type === 'return' ? 'text-red-600' : ''}">
                         ${sale.type === 'return' ? '-' : ''}R$ ${formatCurrency(sale.value)}
                     </td>
-                    <td class="px-2 md:px-4 py-2">${sale.type === 'return' ? 'Devolução' : 'Venda'}</td>
+                    <td class="px-2 md:px-4 py-2">
+                        <span class="inline-block px-2 py-1 rounded text-xs ${sale.type === 'return' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
+                            ${sale.type === 'return' ? 'Devolução' : 'Venda'}
+                        </span>
+                    </td>
                     <td class="px-2 md:px-4 py-2 mobile-hidden">${sale.description || ''}</td>
                     <td class="px-2 md:px-4 py-2 no-print">
-                        <button class="edit-sale text-blue-500 hover:text-blue-700 mr-2 text-xs" data-index="${index}">Editar</button>
-                        <button class="delete-sale text-red-500 hover:text-red-700 text-xs" data-index="${index}">Excluir</button>
+                        <button class="edit-sale text-blue-500 hover:text-blue-700 mr-2 text-xs" data-index="${index}" title="Editar">✏️</button>
+                        <button class="delete-sale text-red-500 hover:text-red-700 text-xs" data-index="${index}" title="Excluir">🗑️</button>
                     </td>
                 `;
                 tbody.appendChild(row);
 
-                // Adicionar ao total diário (subtrair se for devolução)
                 if (sale.type === 'return') {
                     dailyTotal -= sale.value;
                 } else {
                     dailyTotal += sale.value;
                 }
 
-                // Configurar eventos para os botões de editar e excluir
                 row.querySelector('.edit-sale').addEventListener('click', function() {
-                    editSale(index);
+                    editSale(parseInt(this.getAttribute('data-index')));
                 });
                 row.querySelector('.delete-sale').addEventListener('click', function() {
-                    deleteSale(index);
+                    deleteSale(parseInt(this.getAttribute('data-index')));
                 });
             });
 
-            // Adicionar total do último dia
             if (currentDate !== null) {
                 addDailyTotalRow(tbody, currentDate, dailyTotal);
             }
 
-            // Atualizar total diário no rodapé
             document.getElementById('daily-total').textContent = `R$ ${formatCurrency(dailyTotal)}`;
+            document.getElementById('sales-count').textContent = monthSales.length;
         }
 
         function addDailyTotalRow(tbody, date, total) {
@@ -1098,7 +1097,6 @@
         function updateMonthlySummary() {
             const monthSales = getCurrentMonthSales();
             
-            // Calcular totais
             const totalSold = monthSales
                 .filter(sale => sale.type === 'sale')
                 .reduce((sum, sale) => sum + sale.value, 0);
@@ -1109,22 +1107,20 @@
                 
             const netAmount = totalSold - totalReturns;
             
-            // Obter meta do mês atual
             const goalKey = `${currentYear}-${currentMonth}`;
             const monthlyGoal = monthlyGoals[goalKey] ? monthlyGoals[goalKey].goal : 0;
             const workdays = monthlyGoals[goalKey] ? monthlyGoals[goalKey].workdays : 22;
             
-            // Calcular valores
             const remainingGoal = Math.max(0, monthlyGoal - netAmount);
             const daysRemaining = calculateRemainingWorkdays();
             const dailyGoal = daysRemaining > 0 ? remainingGoal / daysRemaining : 0;
             
-            // Calcular média necessária por dia útil
             const daysPassed = calculatePassedWorkdays();
             const averageNeeded = monthlyGoal > 0 ? monthlyGoal / workdays : 0;
             const currentAverage = daysPassed > 0 ? netAmount / daysPassed : 0;
 
-            // Atualizar exibição
+            const progressPercentage = monthlyGoal > 0 ? Math.min(100, (netAmount / monthlyGoal) * 100) : 0;
+            
             document.getElementById('total-sold').textContent = `R$ ${formatCurrency(totalSold)}`;
             document.getElementById('total-returns').textContent = `R$ ${formatCurrency(totalReturns)}`;
             document.getElementById('net-amount').textContent = `R$ ${formatCurrency(netAmount)}`;
@@ -1132,7 +1128,9 @@
             document.getElementById('daily-goal').textContent = `R$ ${formatCurrency(dailyGoal)}`;
             document.getElementById('average-needed').textContent = `R$ ${formatCurrency(averageNeeded)}`;
             
-            // Adicionar cor baseada no desempenho
+            document.getElementById('progress-bar').style.width = `${progressPercentage}%`;
+            document.getElementById('progress-percentage').textContent = `${progressPercentage.toFixed(1)}%`;
+            
             const averageElement = document.getElementById('average-needed');
             if (currentAverage >= averageNeeded) {
                 averageElement.classList.remove('text-indigo-600', 'text-red-600');
@@ -1141,49 +1139,25 @@
                 averageElement.classList.remove('text-indigo-600', 'text-green-600');
                 averageElement.classList.add('text-red-600');
             }
-        }
-
-        function calculatePassedWorkdays() {
-            const today = new Date();
-            const firstDay = new Date(currentYear, currentMonth, 1);
-            let count = 0;
             
-            for (let day = firstDay.getDate(); day <= today.getDate(); day++) {
-                const date = new Date(currentYear, currentMonth, day);
-                if (date.getDay() !== 0 && date.getDay() !== 6 && date <= today) {
-                    count++;
-                }
+            const progressBar = document.getElementById('progress-bar');
+            if (progressPercentage >= 100) {
+                progressBar.className = 'bg-green-600 h-2.5 rounded-full';
+            } else if (progressPercentage >= 70) {
+                progressBar.className = 'bg-yellow-500 h-2.5 rounded-full';
+            } else {
+                progressBar.className = 'bg-green-600 h-2.5 rounded-full';
             }
-            
-            return count;
-        }
-
-        function calculateRemainingWorkdays() {
-            const today = new Date();
-            const lastDay = new Date(currentYear, currentMonth + 1, 0);
-            let count = 0;
-            
-            for (let day = today.getDate(); day <= lastDay.getDate(); day++) {
-                const date = new Date(currentYear, currentMonth, day);
-                if (date.getDay() !== 0 && date.getDay() !== 6) {
-                    count++;
-                }
-            }
-            
-            return count;
         }
 
         function updateChart() {
             const ctx = document.getElementById('sales-chart').getContext('2d');
             
-            // Destruir gráfico anterior se existir
             if (window.salesChart) {
                 window.salesChart.destroy();
             }
             
             const monthSales = getCurrentMonthSales();
-            
-            // Agrupar vendas por dia
             const dailySales = {};
             const dailyReturns = {};
             
@@ -1203,7 +1177,6 @@
                 }
             });
             
-            // Preparar dados para o gráfico
             const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
             const labels = [];
             const salesDataChart = [];
@@ -1219,7 +1192,6 @@
                 netData.push(sales - returns);
             }
             
-            // Criar gráfico
             window.salesChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -1275,22 +1247,255 @@
             });
         }
 
-        function updateMonthNotes() {
-            const notesKey = `${currentYear}-${currentMonth}`;
-            document.getElementById('month-notes').value = monthNotes[notesKey] || '';
+        // ========== FUNÇÕES DE ESTATÍSTICAS ==========
+        function showStatsModal() {
+            calculateStatistics();
+            document.getElementById('stats-modal').classList.remove('hidden');
         }
 
-        function updateGoalInputs() {
-            const goalKey = `${currentYear}-${currentMonth}`;
-            const goalData = monthlyGoals[goalKey];
+        function hideStatsModal() {
+            document.getElementById('stats-modal').classList.add('hidden');
+        }
+
+        function calculateStatistics() {
+            let annualTotal = 0;
+            let annualSales = 0;
+            let annualReturns = 0;
+            let monthsWithData = 0;
             
-            if (goalData) {
-                document.getElementById('monthly-goal').value = goalData.goal;
-                document.getElementById('workdays').value = goalData.workdays;
-            } else {
-                document.getElementById('monthly-goal').value = '';
-                document.getElementById('workdays').value = 22;
+            const monthlyData = [];
+            const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+            
+            for (let month = 0; month < 12; month++) {
+                const monthSales = salesData[currentYear] && salesData[currentYear][month] ? salesData[currentYear][month] : [];
+                const monthSold = monthSales.filter(s => s.type === 'sale').reduce((sum, s) => sum + s.value, 0);
+                const monthReturns = monthSales.filter(s => s.type === 'return').reduce((sum, s) => sum + s.value, 0);
+                const monthNet = monthSold - monthReturns;
+                
+                annualTotal += monthNet;
+                annualSales += monthSold;
+                annualReturns += monthReturns;
+                
+                if (monthSales.length > 0) monthsWithData++;
+                
+                monthlyData.push({
+                    month: monthNames[month],
+                    net: monthNet,
+                    sales: monthSold,
+                    returns: monthReturns
+                });
             }
+            
+            const annualStats = document.getElementById('annual-stats');
+            annualStats.innerHTML = `
+                <div class="flex justify-between">
+                    <span>Total Anual:</span>
+                    <span class="font-semibold">R$ ${formatCurrency(annualTotal)}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Vendas Anuais:</span>
+                    <span>R$ ${formatCurrency(annualSales)}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Devoluções Anuais:</span>
+                    <span>R$ ${formatCurrency(annualReturns)}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Meses com dados:</span>
+                    <span>${monthsWithData}/12</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Média Mensal:</span>
+                    <span>R$ ${formatCurrency(monthsWithData > 0 ? annualTotal / monthsWithData : 0)}</span>
+                </div>
+            `;
+            
+            const topMonths = [...monthlyData]
+                .filter(m => m.net > 0)
+                .sort((a, b) => b.net - a.net)
+                .slice(0, 5);
+            
+            const topMonthsElement = document.getElementById('top-months');
+            if (topMonths.length > 0) {
+                topMonthsElement.innerHTML = topMonths.map(month => `
+                    <div class="flex justify-between">
+                        <span>${month.month}:</span>
+                        <span class="font-semibold">R$ ${formatCurrency(month.net)}</span>
+                    </div>
+                `).join('');
+            } else {
+                topMonthsElement.innerHTML = '<div class="text-gray-500">Nenhum dado disponível</div>';
+            }
+            
+            updateAnnualChart(monthlyData);
+        }
+
+        function updateAnnualChart(monthlyData) {
+            const ctx = document.getElementById('annual-chart').getContext('2d');
+            
+            if (window.annualChart) {
+                window.annualChart.destroy();
+            }
+            
+            window.annualChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: monthlyData.map(m => m.month),
+                    datasets: [
+                        {
+                            label: 'Vendas Líquidas (R$)',
+                            data: monthlyData.map(m => m.net),
+                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return 'R$ ' + formatCurrency(value);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Líquido: R$ ' + formatCurrency(context.parsed.y);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ========== FUNÇÕES RESTANTES ==========
+        function saveMonthlyGoal() {
+            const goal = parseFloat(document.getElementById('monthly-goal').value);
+            const workdays = parseInt(document.getElementById('workdays').value);
+            
+            if (isNaN(goal) || goal < 0 || isNaN(workdays) || workdays < 1 || workdays > 31) {
+                alert('Por favor, insira valores válidos para a meta e dias úteis.');
+                return;
+            }
+            
+            const goalKey = `${currentYear}-${currentMonth}`;
+            monthlyGoals[goalKey] = {
+                goal: goal,
+                workdays: workdays
+            };
+            
+            lastLocalUpdate = Date.now();
+            saveLocalData();
+            updateDisplay();
+            
+            setTimeout(() => {
+                syncWithJSONBin();
+            }, 500);
+        }
+
+        function saveMonthNotes() {
+            const notes = document.getElementById('month-notes').value;
+            const notesKey = `${currentYear}-${currentMonth}`;
+            monthNotes[notesKey] = notes;
+            
+            lastLocalUpdate = Date.now();
+            saveLocalData();
+            
+            setTimeout(() => {
+                syncWithJSONBin();
+            }, 500);
+        }
+
+        function clearAllData() {
+            showLoading('Limpando dados...');
+            
+            setTimeout(() => {
+                salesData = {};
+                monthlyGoals = {};
+                monthNotes = {};
+                
+                initializeEmptyData();
+                lastLocalUpdate = Date.now();
+                saveLocalData();
+                updateDisplay();
+                
+                setTimeout(() => {
+                    syncWithJSONBin();
+                }, 500);
+                
+                showSyncStatus('Todos os dados foram limpos!', 'saved');
+                hideLoading();
+            }, 1000);
+        }
+
+        function showImportModal() {
+            document.getElementById('import-modal').classList.remove('hidden');
+        }
+
+        function hideImportModal() {
+            document.getElementById('import-modal').classList.add('hidden');
+            document.getElementById('import-file').value = '';
+            document.getElementById('import-message').textContent = '';
+        }
+
+        function importData() {
+            const fileInput = document.getElementById('import-file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showImportMessage('Selecione um arquivo para importar.', 'error');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    if (!importedData.salesData || !importedData.monthlyGoals || !importedData.monthNotes) {
+                        throw new Error('Arquivo inválido: estrutura de dados incorreta.');
+                    }
+                    
+                    if (confirm('⚠️ ATENÇÃO: Isso substituirá todos os seus dados atuais. Deseja continuar?')) {
+                        salesData = importedData.salesData;
+                        monthlyGoals = importedData.monthlyGoals;
+                        monthNotes = importedData.monthNotes;
+                        
+                        lastLocalUpdate = Date.now();
+                        
+                        saveLocalData();
+                        showImportMessage('Dados importados com sucesso!', 'success');
+                        updateDisplay();
+                        setTimeout(() => {
+                            syncWithJSONBin();
+                            hideImportModal();
+                        }, 2000);
+                    }
+                } catch (error) {
+                    console.error('Erro ao importar:', error);
+                    showImportMessage('Erro: ' + error.message, 'error');
+                }
+            };
+            
+            reader.onerror = function() {
+                showImportMessage('Erro ao ler o arquivo.', 'error');
+            };
+            
+            reader.readAsText(file);
+        }
+
+        function showImportMessage(message, type) {
+            const element = document.getElementById('import-message');
+            element.textContent = message;
+            element.className = `mt-2 text-sm ${type === 'success' ? 'text-green-600' : 'text-red-600'}`;
         }
 
         function exportData() {
@@ -1317,7 +1522,6 @@
         }
 
         function printReport() {
-            // Atualizar dados no relatório de impressão
             const monthNames = [
                 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
@@ -1328,7 +1532,6 @@
             
             const monthSales = getCurrentMonthSales();
             
-            // Calcular totais
             const totalSold = monthSales
                 .filter(sale => sale.type === 'sale')
                 .reduce((sum, sale) => sum + sale.value, 0);
@@ -1355,7 +1558,6 @@
             document.getElementById('print-daily-goal').textContent = `R$ ${formatCurrency(dailyGoal)}`;
             document.getElementById('print-average-needed').textContent = `R$ ${formatCurrency(averageNeeded)}`;
             
-            // Preencher tabela de impressão
             const printTableBody = document.querySelector('#print-sales-table tbody');
             printTableBody.innerHTML = '';
             
@@ -1374,16 +1576,106 @@
                 printTableBody.appendChild(row);
             });
             
-            // Imprimir
             window.print();
         }
 
-        // Funções auxiliares
+        function showSyncStatus(message, type = 'saving') {
+            const statusElement = document.getElementById('sync-status');
+            statusElement.textContent = message;
+            statusElement.className = `sync-status sync-${type}`;
+            statusElement.style.display = 'block';
+            
+            if (type === 'saved') {
+                setTimeout(() => {
+                    statusElement.style.display = 'none';
+                }, 2000);
+            }
+        }
+
+        function setCurrentDate() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            document.getElementById('sale-date').value = `${year}-${month}-${day}`;
+        }
+
+        function updateMonthTabs() {
+            document.getElementById('mobile-month-select').value = currentMonth;
+            
+            document.querySelectorAll('.month-tab').forEach(tab => {
+                tab.classList.remove('bg-blue-500', 'text-white');
+                tab.classList.add('bg-gray-200', 'hover:bg-gray-300');
+            });
+            
+            const activeTab = document.querySelector(`.month-tab[data-month="${currentMonth}"]`);
+            if (activeTab) {
+                activeTab.classList.remove('bg-gray-200', 'hover:bg-gray-300');
+                activeTab.classList.add('bg-blue-500', 'text-white');
+            }
+        }
+
+        function updateDisplay() {
+            console.log('Atualizando display... Mês:', currentMonth + 1, 'Ano:', currentYear);
+            updateSalesTable();
+            updateMonthlySummary();
+            updateChart();
+            updateMonthNotes();
+            updateGoalInputs();
+        }
+
+        function updateMonthNotes() {
+            const notesKey = `${currentYear}-${currentMonth}`;
+            document.getElementById('month-notes').value = monthNotes[notesKey] || '';
+        }
+
+        function updateGoalInputs() {
+            const goalKey = `${currentYear}-${currentMonth}`;
+            const goalData = monthlyGoals[goalKey];
+            
+            if (goalData) {
+                document.getElementById('monthly-goal').value = goalData.goal;
+                document.getElementById('workdays').value = goalData.workdays;
+            } else {
+                document.getElementById('monthly-goal').value = '';
+                document.getElementById('workdays').value = 22;
+            }
+        }
+
+        function calculatePassedWorkdays() {
+            const today = new Date();
+            const firstDay = new Date(currentYear, currentMonth, 1);
+            let count = 0;
+            
+            for (let day = firstDay.getDate(); day <= today.getDate(); day++) {
+                const date = new Date(currentYear, currentMonth, day);
+                if (date.getDay() !== 0 && date.getDay() !== 6 && date <= today) {
+                    count++;
+                }
+            }
+            
+            return count;
+        }
+
+        function calculateRemainingWorkdays() {
+            const today = new Date();
+            const lastDay = new Date(currentYear, currentMonth + 1, 0);
+            let count = 0;
+            
+            for (let day = today.getDate(); day <= lastDay.getDate(); day++) {
+                const date = new Date(currentYear, currentMonth, day);
+                if (date.getDay() !== 0 && date.getDay() !== 6) {
+                    count++;
+                }
+            }
+            
+            return count;
+        }
+
         function getCurrentMonthSales() {
             if (!salesData[currentYear] || !salesData[currentYear][currentMonth]) {
                 return [];
             }
-            // Garantir que é um array
             if (!Array.isArray(salesData[currentYear][currentMonth])) {
                 salesData[currentYear][currentMonth] = [];
             }
@@ -1399,7 +1691,7 @@
             return value.toFixed(2).replace('.', ',');
         }
 
-        console.log('Planilha de Vendas com sincronização corrigida carregada com sucesso!');
+        console.log('Planilha de Vendas otimizada carregada com sucesso!');
     </script>
 </body>
 </html>
